@@ -1,0 +1,113 @@
+route_id,service_id,trip_id,trip_headsign,direction_id
+L362,SEM,362_SEM_0_001,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_002,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_003,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_004,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_005,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_006,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_007,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_008,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_009,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_010,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_011,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_012,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_013,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_014,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_015,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_016,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_017,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_018,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_019,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_020,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_021,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_022,Toulouse – Arènes,0
+L362,SEM,362_SEM_0_023,Toulouse – Arènes,0
+L362,SEM,362_SEM_1_024,Merville,1
+L362,SEM,362_SEM_1_025,Merville,1
+L362,SEM,362_SEM_1_026,Merville,1
+L362,SEM,362_SEM_1_027,Merville,1
+L362,SEM,362_SEM_1_028,Merville,1
+L362,SEM,362_SEM_1_029,Merville,1
+L362,SEM,362_SEM_1_030,Merville,1
+L362,SEM,362_SEM_1_031,Merville,1
+L362,SEM,362_SEM_1_032,Merville,1
+L362,SEM,362_SEM_1_033,Merville,1
+L362,SEM,362_SEM_1_034,Merville,1
+L362,SEM,362_SEM_1_035,Merville,1
+L362,SEM,362_SEM_1_036,Merville,1
+L362,SEM,362_SEM_1_037,Merville,1
+L362,SEM,362_SEM_1_038,Merville,1
+L362,SEM,362_SEM_1_039,Merville,1
+L362,SEM,362_SEM_1_040,Merville,1
+L362,SEM,362_SEM_1_041,Merville,1
+L362,SEM,362_SEM_1_042,Merville,1
+L362,SEM,362_SEM_1_043,Merville,1
+L362,SEM,362_SEM_1_044,Merville,1
+L362,SEM,362_SEM_1_045,Merville,1
+L362,SEM,362_SEM_1_046,Merville,1
+L362,SEM,362_SEM_1_047,Merville,1
+L362,SEM,362_SEM_1_048,Merville,1
+L362,SAM,362_SAM_0_049,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_050,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_051,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_052,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_053,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_054,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_055,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_056,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_057,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_058,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_059,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_060,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_061,Toulouse – Arènes,0
+L362,SAM,362_SAM_0_062,Toulouse – Arènes,0
+L362,SAM,362_SAM_1_063,Merville,1
+L362,SAM,362_SAM_1_064,Merville,1
+L362,SAM,362_SAM_1_065,Merville,1
+L362,SAM,362_SAM_1_066,Merville,1
+L362,SAM,362_SAM_1_067,Merville,1
+L362,SAM,362_SAM_1_068,Merville,1
+L362,SAM,362_SAM_1_069,Merville,1
+L362,SAM,362_SAM_1_070,Merville,1
+L362,SAM,362_SAM_1_071,Merville,1
+L362,SAM,362_SAM_1_072,Merville,1
+L362,SAM,362_SAM_1_073,Merville,1
+L362,SAM,362_SAM_1_074,Merville,1
+L362,SAM,362_SAM_1_075,Merville,1
+L362,SAM,362_SAM_1_076,Merville,1
+L362,DIM,362_DIM_0_077,Toulouse – Arènes,0
+L362,DIM,362_DIM_0_078,Toulouse – Arènes,0
+L362,DIM,362_DIM_0_079,Toulouse – Arènes,0
+L362,DIM,362_DIM_0_080,Toulouse – Arènes,0
+L362,DIM,362_DIM_1_081,Merville,1
+L362,DIM,362_DIM_1_082,Merville,1
+L362,DIM,362_DIM_1_083,Merville,1
+L362,DIM,362_DIM_1_084,Merville,1
+L330,SEM,330_SEM_0_085,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_086,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_087,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_088,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_089,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_090,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_091,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_092,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_093,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_094,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_095,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_096,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_097,Toulouse – Borderouge,0
+L330,SEM,330_SEM_0_098,Toulouse – Borderouge,0
+L330,SEM,330_SEM_1_099,Aussonne,1
+L330,SEM,330_SEM_1_100,Aussonne,1
+L330,SEM,330_SEM_1_101,Aussonne,1
+L330,SEM,330_SEM_1_102,Aussonne,1
+L330,SEM,330_SEM_1_103,Aussonne,1
+L330,SEM,330_SEM_1_104,Aussonne,1
+L330,SEM,330_SEM_1_105,Aussonne,1
+L330,SEM,330_SEM_1_106,Aussonne,1
+L330,SEM,330_SEM_1_107,Aussonne,1
+L330,SEM,330_SEM_1_108,Aussonne,1
+L330,SEM,330_SEM_1_109,Aussonne,1
+L330,SEM,330_SEM_1_110,Aussonne,1
+L330,SEM,330_SEM_1_111,Aussonne,1
+L330,SEM,330_SEM_1_112,Aussonne,1

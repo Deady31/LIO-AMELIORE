@@ -1,0 +1,37 @@
+{
+  "name": "assistant-horaires-concept",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data": "node scripts/build-gtfs.mjs",
+    "data:demo": "node scripts/build-gtfs.mjs --demo",
+    "demo-gtfs": "node scripts/make-demo-gtfs.mjs",
+    "dev": "next dev",
+    "prebuild": "node scripts/build-gtfs.mjs",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "fuse.js": "^7.5.0",
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "yauzl": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "typescript": "5.9",
+    "vitest": "^5.0.3"
+  }
+}

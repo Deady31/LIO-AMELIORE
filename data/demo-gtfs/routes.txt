@@ -1,0 +1,3 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color,route_text_color
+L362,DEMO,362,Merville – Aussonne – Toulouse Arènes,3,C8102E,FFFFFF
+L330,DEMO,330,Aussonne – Seilh – Toulouse Borderouge,3,0B6FB8,FFFFFF

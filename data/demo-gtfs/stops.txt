@@ -1,0 +1,9 @@
+stop_id,stop_name,stop_lat,stop_lon
+MERV_MAI,Merville – Mairie,43.7228,1.2969
+AUS_MAI,Aussonne – Mairie,43.6825,1.3221
+AUS_GRE,Aussonne – Grésille,43.676,1.332
+COR_CEN,Cornebarrieu – Centre,43.6497,1.3268
+BLA_ODY,Blagnac – Odyssud,43.6408,1.3858
+TLS_ARE,Toulouse – Arènes,43.5933,1.4183
+SEI_VIL,Seilh – Village,43.6939,1.3553
+TLS_BOR,Toulouse – Borderouge,43.6407,1.4527
