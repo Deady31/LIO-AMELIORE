@@ -20,6 +20,3 @@ export function stopById(net: Network, id: string): Stop | undefined {
   const i = net.stopIndex.get(id);
   return i === undefined ? undefined : net.stops[i];
 }
-
-/** Horaires temps réel non branchés : tout est théorique. */
-export const REALTIME_ENABLED = false;

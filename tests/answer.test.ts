@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ask, answerRequest } from "../lib/answer";
 import { GroqError } from "../lib/groq";
-import { network } from "../lib/network";
+import { network } from "./demo";
 import type { Intent } from "../lib/intent";
 
 const NOW = { date: "20261001", minutes: 17 * 60 + 35 }; // jeudi 17h35

@@ -2,18 +2,34 @@
 import type { Answer, AskResponse, Choice, DirectionView, LineBadge, TripView } from "./answer-types";
 import { GroqError, parseWithGroq } from "./groq";
 import { parseFallback, type Intent, type StructuredRequest } from "./intent";
-import { REALTIME_ENABLED, type Network } from "./network";
+import { REALTIME_ENABLED } from "./config";
+import type { Network } from "./network";
 import { resolveDirection, resolveLine, resolvePlace } from "./resolve";
 import { directionsAtStop, directTrips, nextDepartures } from "./schedule";
 import { dayLabel, formatClock, formatDuration, formatWait, parisMoment, parseClock, shiftDate } from "./time";
 import type { LocalMoment } from "./types";
 
-export const EXAMPLES = [
+const DEMO_EXAMPLES = [
   "Prochain 362 à Grésille",
   "Comment aller de Aussonne à Arènes ?",
   "362 à Aussonne Mairie vers Merville",
   "Trajet de Merville à Borderouge",
 ];
+
+/** Exemples cliquables, construits d'après les données réellement chargées. */
+export function examplesFor(net: Network): string[] {
+  if (net.meta.source === "demo") return DEMO_EXAMPLES;
+  const line = net.lines[0];
+  const trip = net.trips.filter((t) => t.line === line?.id).sort((a, b) => b.stops.length - a.stops.length)[0];
+  if (!trip) return [];
+  const name = (k: number) => net.stops[trip.stops[k]].name;
+  const last = trip.stops.length - 1;
+  return [
+    `Prochain ${line.id} à ${name(Math.floor(last / 2))}`,
+    `Comment aller de ${name(0)} à ${name(last)} ?`,
+    `${line.id} à ${name(1)} vers ${name(0)}`,
+  ];
+}
 
 const badge = (net: Network, lineId: string): LineBadge => {
   const l = net.lineById.get(lineId);
@@ -34,7 +50,7 @@ function startMoment(now: LocalMoment, heure: string | null | undefined) {
 function relative(abs: number, shift: number, now: LocalMoment) {
   const total = abs + shift * 1440;
   const waitMin = total - now.minutes;
-  return { day: dayLabel(Math.floor(total / 1440)), wait: waitMin <= 180 ? formatWait(waitMin) : "" };
+  return { day: dayLabel(Math.floor(total / 1440)), wait: waitMin <= 720 ? formatWait(waitMin) : "" };
 }
 
 // ------------------------------------------------------------- prochain
@@ -69,7 +85,7 @@ function answerProchain(net: Network, req: StructuredRequest, now: LocalMoment):
   if (!stopIdxs.length) {
     if (!req.arret) {
       if (lineId) return lineStopsChoices(`À quel arrêt de la ${lineId} ?`);
-      return { kind: "error", headline: "Précisez un arrêt.", detail: "Par exemple : « prochain 362 à Grésille ».", examples: EXAMPLES.slice(0, 2) };
+      return { kind: "error", headline: "Précisez un arrêt.", detail: "Par exemple : « prochain 362 à Grésille ».", examples: examplesFor(net).slice(0, 2) };
     }
     const r = resolvePlace(net, req.arret, { lineId });
     if (r.status === "notfound") {
@@ -163,8 +179,8 @@ function resolveSide(net: Network, req: StructuredRequest, role: "depart" | "arr
   const text = req[role];
   if (!text) {
     return role === "depart"
-      ? { kind: "error", headline: "D'où partez-vous ?", detail: "Précisez le départ et l'arrivée, par exemple « de Aussonne à Arènes ».", examples: [EXAMPLES[1]] }
-      : { kind: "error", headline: "Où voulez-vous aller ?", detail: "Précisez l'arrivée, par exemple « de Aussonne à Arènes ».", examples: [EXAMPLES[1]] };
+      ? { kind: "error", headline: "D'où partez-vous ?", detail: "Précisez le départ et l'arrivée, par exemple « de Aussonne à Arènes ».", examples: examplesFor(net).slice(1, 2) }
+      : { kind: "error", headline: "Où voulez-vous aller ?", detail: "Précisez l'arrivée, par exemple « de Aussonne à Arènes ».", examples: examplesFor(net).slice(1, 2) };
   }
   const r = resolvePlace(net, text);
   const roleLabel = role === "depart" ? "départ" : "arrivée";
@@ -239,7 +255,7 @@ export function answerRequest(net: Network, req: StructuredRequest, now: LocalMo
     kind: "error",
     headline: "Je n'ai pas compris la demande.",
     detail: "Je réponds aux prochains passages et aux trajets directs sur les lignes de la démo.",
-    examples: EXAMPLES,
+    examples: examplesFor(net),
   };
 }
 
@@ -261,7 +277,7 @@ export async function ask(
   }
   const question = typeof body.question === "string" ? body.question.trim() : "";
   if (!question) {
-    return { ...base, mode: "repli", answer: { kind: "error", headline: "Posez une question d'horaire ou de trajet.", examples: EXAMPLES } };
+    return { ...base, mode: "repli", answer: { kind: "error", headline: "Posez une question d'horaire ou de trajet.", examples: examplesFor(net) } };
   }
   if (question.length > 300) {
     return { ...base, mode: "repli", answer: { kind: "error", headline: "Question trop longue (300 caractères maximum)." } };

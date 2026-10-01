@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { network } from "../lib/network";
+import { network } from "./demo";
 import { parseFallback, sanitizeIntent } from "../lib/intent";
 import { resolveDirection, resolveLine, resolvePlace } from "../lib/resolve";
 import { directionsAtStop } from "../lib/schedule";

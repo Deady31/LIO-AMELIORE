@@ -19,6 +19,7 @@ import yauzl from "yauzl";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "data", "network.json");
+const OUT_DEMO = join(ROOT, "data", "network.demo.json"); // toujours régénéré : sert aux tests
 const DEMO_DIR = join(ROOT, "data", "demo-gtfs");
 const DATASETS_API = "https://transport.data.gouv.fr/api/datasets";
 const WANTED = (process.env.LIO_LINES || "362").split(",").map((s) => s.trim()).filter(Boolean);
@@ -320,7 +321,16 @@ async function tryReal() {
   return (await findLioGtfsUrls()).slice(0, 4);
 }
 
+async function buildDemo() {
+  if (!existsSync(join(DEMO_DIR, "stops.txt"))) throw new Error("data/demo-gtfs manquant : lancez npm run demo-gtfs");
+  const src = await openSource(DEMO_DIR);
+  const data = await build(src, { source: "demo", feedName: "Jeu de données factice (démo)", sourceUrl: null });
+  writeFileSync(OUT_DEMO, JSON.stringify(data));
+  return data;
+}
+
 async function main() {
+  const demo = await buildDemo();
   const forceDemo = process.argv.includes("--demo");
   if (!forceDemo) {
     try {
@@ -348,11 +358,8 @@ async function main() {
       log("→ repli sur le jeu de données factice (data/demo-gtfs)");
     }
   }
-  if (!existsSync(join(DEMO_DIR, "stops.txt"))) throw new Error("data/demo-gtfs manquant : lancez npm run demo-gtfs");
-  const src = await openSource(DEMO_DIR);
-  const data = await build(src, { source: "demo", feedName: "Jeu de données factice (démo)", sourceUrl: null });
-  writeFileSync(OUT, JSON.stringify(data));
-  log(`démo : ${data.trips.length} courses, ${data.stops.length} arrêts → data/network.json`);
+  writeFileSync(OUT, JSON.stringify(demo));
+  log(`démo : ${demo.trips.length} courses, ${demo.stops.length} arrêts → data/network.json`);
 }
 
 main().catch((e) => {

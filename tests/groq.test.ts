@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseWithGroq } from "../lib/groq";
-import { network } from "../lib/network";
+import { network } from "./demo";
 
 afterEach(() => {
   vi.unstubAllGlobals();

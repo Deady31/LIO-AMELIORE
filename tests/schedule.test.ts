@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { network, createNetwork } from "../lib/network";
+import { createNetwork } from "../lib/network";
+import { network } from "./demo";
 import { directTrips, isServiceActive, matchOnTrip, nextDepartures } from "../lib/schedule";
 import type { NetworkData } from "../lib/types";
 
