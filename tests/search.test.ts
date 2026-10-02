@@ -114,9 +114,19 @@ describe("cas particuliers", () => {
   });
 
   it("arrêt du réseau hors démo", () => {
-    expect(resolvePlace(net, "Jean Jaures")).toMatchObject({ status: "elsewhere", name: "Toulouse - Jean Jaurès", lines: ["L1", "A", "B"] });
+    expect(resolvePlace(net, "Jean Jaures")).toMatchObject({ status: "elsewhere", matches: [{ name: "Toulouse - Jean Jaurès", lines: ["L1", "A", "B"] }] });
     expect(resolvePlace(net, "jaures")).toMatchObject({ status: "elsewhere" });
-    expect(resolvePlace(net, "tournefeuille gare")).toMatchObject({ status: "elsewhere", name: "Tournefeuille - Gare" });
+    expect(resolvePlace(net, "tournefeuille gare")).toMatchObject({ status: "elsewhere", matches: [{ name: "Tournefeuille - Gare" }] });
+  });
+
+  it("plusieurs arrêts homonymes hors démo : tous listés", () => {
+    const n = mini(["Toulouse - Arènes"], [
+      { name: "Toulouse - St Cyprien République", lines: ["L2"] },
+      { name: "Saint-Cyprien - Plage", lines: ["600"] },
+    ]);
+    const r = resolvePlace(n, "saint cyprien");
+    expect(r.status).toBe("elsewhere");
+    expect(r.status === "elsewhere" && r.matches.map((m) => m.name).sort()).toEqual(["Saint-Cyprien - Plage", "Toulouse - St Cyprien République"]);
   });
 
   it("introuvable : pas de faux positif, suggestions si proche", () => {

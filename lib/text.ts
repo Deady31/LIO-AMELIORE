@@ -77,7 +77,11 @@ export function significantTokens(s: string): string[] {
 }
 
 /** Clé phonétique simplifiée du français : « grezille » ≈ « gresille », « ciprien » ≈ « cyprien ». */
+const phoneticCache = new Map<string, string>();
+
 export function phonetic(word: string): string {
+  const cached = phoneticCache.get(word);
+  if (cached !== undefined) return cached;
   let w = word;
   w = w.replace(/ph/g, "f").replace(/qu/g, "k").replace(/gu(?=[eiy])/g, "g");
   w = w.replace(/c(?=[eiy])/g, "s").replace(/g(?=[eiy])/g, "j");
@@ -87,6 +91,7 @@ export function phonetic(word: string): string {
   w = w.replace(/eau|au/g, "o").replace(/ai|ei/g, "e").replace(/[ea]([nm])(?![aeiou])/g, "an");
   w = w.replace(/(.)\1+/g, "$1");
   w = w.replace(/(?<=.{2})e$/, "").replace(/(?<=.{2})[stdxp]$/, "");
+  if (phoneticCache.size < 50_000) phoneticCache.set(word, w);
   return w;
 }
 

@@ -26,7 +26,7 @@ export type PlaceResolution =
   /** group = tous les candidats sont dans la commune demandée (ex. « Aussonne ») */
   | { status: "ambiguous"; candidates: number[]; group: boolean; label: string }
   /** arrêt connu du réseau mais desservi par aucune ligne de la démo */
-  | { status: "elsewhere"; query: string; name: string; lines: string[] }
+  | { status: "elsewhere"; query: string; matches: { name: string; lines: string[] }[] }
   /** suggestions = arrêts les plus proches (index dans net.stops) */
   | { status: "notfound"; query: string; suggestions: number[] };
 
@@ -167,6 +167,20 @@ function strictMatch(index: PlaceIndex, q: string): Match {
   return null;
 }
 
+/** Arrêts hors démo : toutes les correspondances fortes (homonymes de communes différentes compris). */
+function otherMatch(index: PlaceIndex, q: string): Match {
+  const m = strictMatch(index, q);
+  if (!m) return null;
+  const cands = new Set(m.cands);
+  const qt = queryTokens(q);
+  if (qt.length) {
+    const ranked = rank(index, qt, 0.85);
+    const top = ranked[0]?.total ?? 0;
+    for (const r of ranked) if (top - r.total < 0.2) cands.add(r.idx);
+  }
+  return { ...m, cands: [...cands] };
+}
+
 /** Dernier recours : recherche floue sur le nom entier. */
 function fuzzyMatch(index: PlaceIndex, q: string): Match {
   const hits = index.fuse.search(canonical(q)).filter((h) => (h.score ?? 1) <= 0.45);
@@ -208,10 +222,9 @@ export function resolvePlace(net: Network, raw: string | null | undefined, opts:
 
   const m = strictMatch(served, q);
   // Arrêt du réseau hors des lignes de la démo, nettement plus ressemblant ?
-  const o = net.otherStops?.length && !(m && m.score >= 1) ? strictMatch(other, q) : null;
+  const o = net.otherStops?.length && !(m && m.score >= 1) ? otherMatch(other, q) : null;
   if (o && (!m || o.score > m.score + 0.1)) {
-    const s = net.otherStops![o.cands[0]];
-    return { status: "elsewhere", query: label, name: s.name, lines: s.lines };
+    return { status: "elsewhere", query: label, matches: o.cands.slice(0, 3).map((i) => net.otherStops![i]) };
   }
   if (m) return finish(m);
   const f = fuzzyMatch(served, q);

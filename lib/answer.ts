@@ -48,12 +48,20 @@ function resolveWithAlt(net: Network, primary: string, alt: string | null | unde
 
 /** Arrêt connu du réseau mais hors des lignes de la démo. */
 function elsewhereAnswer(net: Network, r: Extract<PlaceResolution, { status: "elsewhere" }>): Answer {
-  const shown = r.lines.slice(0, 6);
-  const more = r.lines.length > shown.length ? "…" : "";
+  const lines = (l: string[]) => `${l.length > 1 ? "lignes" : "ligne"} ${l.slice(0, 6).join(", ")}${l.length > 6 ? "…" : ""}`;
+  const demo = `La démo ne contient que les horaires des lignes ${lineList(net)}.`;
+  if (r.matches.length === 1) {
+    const m = r.matches[0];
+    return {
+      kind: "notice",
+      headline: `${m.name} n'est pas desservi par les lignes de la démo.`,
+      detail: `Cet arrêt est desservi par la ${lines(m.lines)}. ${demo}`,
+    };
+  }
   return {
     kind: "notice",
-    headline: `${r.name} n'est pas desservi par les lignes de la démo.`,
-    detail: `Cet arrêt est desservi par ${shown.length > 1 ? "les lignes" : "la ligne"} ${shown.join(", ")}${more}. La démo ne contient que les horaires des lignes ${lineList(net)}.`,
+    headline: `« ${r.query} » n'est pas desservi par les lignes de la démo.`,
+    detail: `Arrêts correspondants sur le réseau : ${r.matches.map((m) => `${m.name} (${lines(m.lines)})`).join(" ; ")}. ${demo}`,
   };
 }
 
