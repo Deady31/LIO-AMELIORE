@@ -54,6 +54,8 @@ export interface NetworkData {
   stops: Stop[];
   services: Record<string, Service>;
   trips: Trip[];
+  /** Arrêts du réseau desservis uniquement par des lignes hors démo (pas d'horaires). */
+  otherStops?: { name: string; lines: string[] }[];
 }
 
 /** Un instant en heure de Paris : date AAAAMMJJ + minutes depuis minuit. */

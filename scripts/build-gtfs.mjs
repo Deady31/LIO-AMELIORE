@@ -173,18 +173,24 @@ async function build(src, meta) {
   const stopsRaw = new Map();
   await src.read("stops.txt", (s) => stopsRaw.set(s.stop_id, s));
 
+  // Un passage sur tous les horaires : lignes desservant chaque arrêt (pour le choix des lignes
+  // et pour reconnaître les arrêts du réseau hors démo).
+  const namesByLine = new Map();
+  const linesByStop = new Map(); // stop_id -> Set(ligne)
+  await src.read("stop_times.txt", (st) => {
+    const t = trips.get(st.trip_id);
+    if (!t) return;
+    const line = routeShortOf(t.route_id);
+    if (!linesByStop.has(st.stop_id)) linesByStop.set(st.stop_id, new Set());
+    linesByStop.get(st.stop_id).add(line);
+    if (!namesByLine.has(line)) namesByLine.set(line, new Set());
+    const s = stopsRaw.get(st.stop_id);
+    if (s) namesByLine.get(line).add(normalize(s.stop_name));
+  });
+
   // Choix des lignes : celles demandées, sinon la pivot + celles qui partagent le plus d'arrêts.
   let selected = WANTED.filter((l) => byShort.has(l));
   if (selected.length < MAX_LINES && WANTED.length === 1) {
-    const namesByLine = new Map();
-    await src.read("stop_times.txt", (st) => {
-      const t = trips.get(st.trip_id);
-      if (!t) return;
-      const line = routeShortOf(t.route_id);
-      if (!namesByLine.has(line)) namesByLine.set(line, new Set());
-      const s = stopsRaw.get(st.stop_id);
-      if (s) namesByLine.get(line).add(normalize(s.stop_name));
-    });
     const pivotNames = namesByLine.get(pivot) || new Set();
     const ranked = [...namesByLine.entries()]
       .filter(([l]) => l !== pivot)
@@ -304,12 +310,31 @@ async function build(src, meta) {
       };
     });
 
+  // Arrêts du reste du réseau (sans horaires) : noms + lignes, regroupés comme ci-dessus.
+  const others = [];
+  for (const [id, lines] of linesByStop) {
+    if (usedStopIds.has(id)) continue;
+    const s = stopsRaw.get(id);
+    if (!s) continue;
+    const pt = { lat: Number(s.stop_lat), lon: Number(s.stop_lon) };
+    const key = normalize(s.stop_name);
+    if (places.some((p) => p.key === key && distanceM(p, pt) < 500)) continue;
+    let o = others.find((p) => p.key === key && distanceM(p, pt) < 500);
+    if (!o) others.push((o = { key, name: s.stop_name, lat: pt.lat, lon: pt.lon, lines: new Set() }));
+    for (const l of lines) o.lines.add(l);
+  }
+  const byNum = (a, b) => a.localeCompare(b, "fr", { numeric: true });
+  const otherStops = others
+    .map((o) => ({ name: o.name, lines: [...o.lines].sort(byNum) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+
   return {
     meta: { ...meta, generatedAt: new Date().toISOString(), validFrom, validTo, timezone: "Europe/Paris" },
     lines,
     stops: places.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, lines: [...p.lines].sort() })),
     services,
     trips: outTrips,
+    otherStops,
   };
 }
 
@@ -343,7 +368,7 @@ async function main() {
           try {
             const data = await build(src, { source: "gtfs", feedName: c.title, sourceUrl: c.url || null });
             writeFileSync(OUT, JSON.stringify(data));
-            log(`OK : ${data.trips.length} courses, ${data.stops.length} arrêts → data/network.json`);
+            log(`OK : ${data.trips.length} courses, ${data.stops.length} arrêts (+ ${data.otherStops.length} arrêts hors démo) → data/network.json`);
             return;
           } finally {
             src.close();

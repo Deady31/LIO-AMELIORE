@@ -7,3 +7,6 @@ BLA_ODY,Blagnac – Odyssud,43.6408,1.3858
 TLS_ARE,Toulouse – Arènes,43.5933,1.4183
 SEI_VIL,Seilh – Village,43.6939,1.3553
 TLS_BOR,Toulouse – Borderouge,43.6407,1.4527
+TLS_SCY,Toulouse – St Cyprien République,43.5986,1.4321
+TLS_PDO,Toulouse – Patte d'Oie,43.5958,1.4157
+TOU_GAR,Tournefeuille – Gare,43.5852,1.3443

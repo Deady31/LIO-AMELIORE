@@ -48,6 +48,8 @@ export type Answer =
   | { kind: "departures"; headline: string; stopName: string; fromTime?: string; directions: DirectionView[] }
   | { kind: "trips"; headline: string; from: string; to: string; fromTime?: string; trips: TripView[] }
   | { kind: "no-direct"; headline: string; detail: string }
+  /** information neutre (ex. arrêt hors des lignes de la démo) */
+  | { kind: "notice"; headline: string; detail: string }
   | { kind: "choice"; headline: string; choices: Choice[] }
   | { kind: "error"; headline: string; detail?: string; examples?: string[] };
 

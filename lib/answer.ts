@@ -4,7 +4,7 @@ import { GroqError, parseWithGroq } from "./groq";
 import { parseFallback, type Intent, type StructuredRequest } from "./intent";
 import { REALTIME_ENABLED } from "./config";
 import type { Network } from "./network";
-import { resolveDirection, resolveLine, resolvePlace } from "./resolve";
+import { normalize, resolveDirection, resolveLine, resolvePlace, type PlaceResolution } from "./resolve";
 import { directionsAtStop, directTrips, nextDepartures } from "./schedule";
 import { dayLabel, formatClock, formatDuration, formatWait, parisMoment, parseClock, shiftDate } from "./time";
 import type { LocalMoment } from "./types";
@@ -37,6 +37,43 @@ const badge = (net: Network, lineId: string): LineBadge => {
 };
 
 const lineList = (net: Network) => net.lines.map((l) => l.shortName).join(", ");
+
+/** Résout un arrêt ; si le nom (souvent celui renvoyé par l'IA) ne donne rien, réessaie avec le texte tapé. */
+function resolveWithAlt(net: Network, primary: string, alt: string | null | undefined, opts: { lineId?: string } = {}): PlaceResolution {
+  const r = resolvePlace(net, primary, opts);
+  if (r.status !== "notfound" || !alt || normalize(alt) === normalize(primary)) return r;
+  const r2 = resolvePlace(net, alt, opts);
+  return r2.status === "notfound" ? { ...r, suggestions: r.suggestions.length ? r.suggestions : r2.suggestions } : r2;
+}
+
+/** Arrêt connu du réseau mais hors des lignes de la démo. */
+function elsewhereAnswer(net: Network, r: Extract<PlaceResolution, { status: "elsewhere" }>): Answer {
+  const shown = r.lines.slice(0, 6);
+  const more = r.lines.length > shown.length ? "…" : "";
+  return {
+    kind: "notice",
+    headline: `${r.name} n'est pas desservi par les lignes de la démo.`,
+    detail: `Cet arrêt est desservi par ${shown.length > 1 ? "les lignes" : "la ligne"} ${shown.join(", ")}${more}. La démo ne contient que les horaires des lignes ${lineList(net)}.`,
+  };
+}
+
+const linesSub = (net: Network, i: number) => `Ligne${net.stops[i].lines.length > 1 ? "s" : ""} ${net.stops[i].lines.join(", ")}`;
+
+/** Arrêt introuvable : propose les plus proches plutôt qu'une erreur sèche. */
+function notFoundAnswer(net: Network, r: Extract<PlaceResolution, { status: "notfound" }>, role: string, toRequest: (stopId: string) => StructuredRequest): Answer {
+  if (r.suggestions.length) {
+    return {
+      kind: "choice",
+      headline: `Je ne trouve pas exactement l'arrêt${role} « ${r.query} ». Vouliez-vous dire :`,
+      choices: r.suggestions.map((i) => ({ label: net.stops[i].name, sub: linesSub(net, i), request: toRequest(net.stops[i].id) })),
+    };
+  }
+  return {
+    kind: "error",
+    headline: `Je ne trouve pas l'arrêt${role} « ${r.query} ».`,
+    detail: `Vérifiez le nom ou choisissez un arrêt dans l'onglet Horaires. Lignes de la démo : ${lineList(net)}.`,
+  };
+}
 
 /** Instant de départ de la recherche : maintenant, ou l'heure demandée (demain si déjà passée). */
 function startMoment(now: LocalMoment, heure: string | null | undefined) {
@@ -87,10 +124,11 @@ function answerProchain(net: Network, req: StructuredRequest, now: LocalMoment):
       if (lineId) return lineStopsChoices(`À quel arrêt de la ${lineId} ?`);
       return { kind: "error", headline: "Précisez un arrêt.", detail: "Par exemple : « prochain 362 à Grésille ».", examples: examplesFor(net).slice(0, 2) };
     }
-    const r = resolvePlace(net, req.arret, { lineId });
+    const r = resolveWithAlt(net, req.arret, req.alt?.arret, { lineId });
+    if (r.status === "elsewhere") return elsewhereAnswer(net, r);
     if (r.status === "notfound") {
-      if (lineId) return lineStopsChoices(`Je ne trouve pas l'arrêt « ${r.query} ». Arrêts de la ${lineId} :`);
-      return { kind: "error", headline: `Je ne trouve pas l'arrêt « ${r.query} ».`, detail: `Arrêts de la démo : ${net.stops.map((s) => s.name).join(", ")}.` };
+      if (lineId && !r.suggestions.length) return lineStopsChoices(`Je ne trouve pas l'arrêt « ${r.query} ». Arrêts de la ${lineId} :`);
+      return notFoundAnswer(net, r, "", (id) => ({ ...req, intention: "prochain", arret: null, arretIds: [id] }));
     }
     if (r.status === "ambiguous") {
       return {
@@ -98,7 +136,7 @@ function answerProchain(net: Network, req: StructuredRequest, now: LocalMoment):
         headline: `Plusieurs arrêts correspondent à « ${r.label} » :`,
         choices: r.candidates.map((i) => ({
           label: net.stops[i].name,
-          sub: `Ligne${net.stops[i].lines.length > 1 ? "s" : ""} ${net.stops[i].lines.join(", ")}`,
+          sub: linesSub(net, i),
           request: { ...req, intention: "prochain", arret: null, arretIds: [net.stops[i].id] },
         })),
       };
@@ -182,19 +220,18 @@ function resolveSide(net: Network, req: StructuredRequest, role: "depart" | "arr
       ? { kind: "error", headline: "D'où partez-vous ?", detail: "Précisez le départ et l'arrivée, par exemple « de Aussonne à Arènes ».", examples: examplesFor(net).slice(1, 2) }
       : { kind: "error", headline: "Où voulez-vous aller ?", detail: "Précisez l'arrivée, par exemple « de Aussonne à Arènes ».", examples: examplesFor(net).slice(1, 2) };
   }
-  const r = resolvePlace(net, text);
+  const r = resolveWithAlt(net, text, req.alt?.[role]);
   const roleLabel = role === "depart" ? "départ" : "arrivée";
+  const key = role === "depart" ? "departIds" : "arriveeIds";
   if (r.status === "ok") return { idxs: r.stopIdxs, label: r.label };
-  if (r.status === "notfound") {
-    return { kind: "error", headline: `Je ne trouve pas l'arrêt de ${roleLabel} « ${r.query} ».`, detail: `Arrêts de la démo : ${net.stops.map((s) => s.name).join(", ")}.` };
-  }
+  if (r.status === "elsewhere") return elsewhereAnswer(net, r);
+  if (r.status === "notfound") return notFoundAnswer(net, r, ` de ${roleLabel}`, (id) => ({ ...req, intention: "trajet", [key]: [id] }));
   // Commune entière (ex. « Aussonne ») : on cherche depuis tous ses arrêts.
   if (r.group) return { idxs: r.candidates, label: `${r.label.charAt(0).toUpperCase()}${r.label.slice(1)} (tous arrêts)` };
-  const key = role === "depart" ? "departIds" : "arriveeIds";
   return {
     kind: "choice",
     headline: `Plusieurs arrêts de ${roleLabel} correspondent à « ${r.label} » :`,
-    choices: r.candidates.map((i) => ({ label: net.stops[i].name, sub: `Ligne${net.stops[i].lines.length > 1 ? "s" : ""} ${net.stops[i].lines.join(", ")}`, request: { ...req, intention: "trajet", [key]: [net.stops[i].id] } })),
+    choices: r.candidates.map((i) => ({ label: net.stops[i].name, sub: linesSub(net, i), request: { ...req, intention: "trajet", [key]: [net.stops[i].id] } })),
   };
 }
 
@@ -286,12 +323,15 @@ export async function ask(
   let intent: Intent;
   let mode: AskResponse["mode"] = "ia";
   let modeReason: string | undefined;
+  const ruleIntent = parseFallback(question, net.lines.map((l) => l.id));
   try {
     intent = await (opts.groq ?? parseWithGroq)(question, net);
   } catch (e) {
-    intent = parseFallback(question, net.lines.map((l) => l.id));
+    intent = ruleIntent;
     mode = "repli";
     modeReason = e instanceof GroqError ? e.reason : "IA indisponible";
   }
-  return { ...base, mode, modeReason, intent, answer: answerRequest(net, intent, now) };
+  // Si le nom d'arrêt proposé par l'IA ne correspond à rien, on réessaiera avec le texte de l'utilisateur.
+  const alt = mode === "ia" ? { arret: ruleIntent.arret, depart: ruleIntent.depart, arrivee: ruleIntent.arrivee } : undefined;
+  return { ...base, mode, modeReason, intent, answer: answerRequest(net, { ...intent, alt }, now) };
 }

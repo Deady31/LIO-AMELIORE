@@ -4,7 +4,7 @@ import type { Answer, AskResponse } from "@/lib/answer-types";
 import type { StructuredRequest } from "@/lib/intent";
 import LineBadge from "./LineBadge";
 import { DemoTag, TheoreticalTag } from "./Tags";
-import { IconAlert, IconChevron, IconPin, IconRoute } from "./icons";
+import { IconAlert, IconChevron, IconInfo, IconPin, IconRoute } from "./icons";
 
 type Actions = { onRequest: (r: StructuredRequest, label: string) => void; onQuestion: (q: string) => void };
 
@@ -127,10 +127,11 @@ function Body({ answer, onRequest, onQuestion }: { answer: Answer } & Actions) {
       );
 
     case "no-direct":
+    case "notice":
       return (
         <div className="flex gap-3 p-4">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-muted">
-            <IconRoute className="h-5 w-5" />
+            {answer.kind === "notice" ? <IconInfo className="h-5 w-5" /> : <IconRoute className="h-5 w-5" />}
           </span>
           <div>
             <h2 className="font-semibold">{answer.headline}</h2>

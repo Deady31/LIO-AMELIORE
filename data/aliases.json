@@ -1,0 +1,13 @@
+{
+  "_comment": "Surnoms d'arrêts. Clé : texte contenu dans le nom officiel ; valeur : façons courantes de le désigner. Une clé absente des données est simplement ignorée.",
+  "matabiau": ["gare sncf", "gare de toulouse", "gare toulouse", "gare matabiau"],
+  "aeroport": ["aeroport", "aeroport blagnac", "aeroport toulouse"],
+  "arenes": ["arenes metro", "arenes tram"],
+  "jean jaures": ["jaures"],
+  "purpan": ["hopital purpan", "chu purpan"],
+  "rangueil": ["hopital rangueil", "chu rangueil"],
+  "paul sabatier": ["universite paul sabatier", "fac sabatier", "ups"],
+  "mirail": ["universite mirail", "fac mirail", "jean jaures universite"],
+  "borderouge": ["borderouge metro"],
+  "gare routiere": ["gare routiere", "gare des bus", "gare des cars"]
+}

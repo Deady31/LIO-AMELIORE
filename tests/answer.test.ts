@@ -84,4 +84,27 @@ describe("/api/ask (logique)", () => {
     const r = await ask(network, { question: "quel temps fait-il ?" }, { now: NOW, groq: fakeAI({}) });
     expect(r.answer).toMatchObject({ kind: "error", headline: "Je n'ai pas compris la demande." });
   });
+
+  it("arrêt du réseau hors des lignes de la démo (Saint-Cyprien)", async () => {
+    for (const question of ["prochain bus à saint cyprien", "prochain 362 à St-Cyprien", "comment aller de stcyprien à Arènes"]) {
+      const r = await ask(network, { question }, { now: NOW, groq: noAI });
+      expect(r.answer).toMatchObject({
+        kind: "notice",
+        headline: "Toulouse – St Cyprien République n'est pas desservi par les lignes de la démo.",
+        detail: expect.stringContaining("ligne 345"),
+      });
+    }
+  });
+
+  it("nom d'arrêt de l'IA inutilisable → réessai avec le texte tapé", async () => {
+    const r = await ask(network, { question: "prochain 362 à grézille" }, { now: NOW, groq: fakeAI({ intention: "prochain", ligne: "362", arret: "Qwxz" }) });
+    expect(r.mode).toBe("ia");
+    expect(r.answer).toMatchObject({ kind: "departures", stopName: "Aussonne – Grésille" });
+  });
+
+  it("IA qui renvoie le nom officiel", async () => {
+    const r = await ask(network, { question: "prochain 362 a gresil" }, { now: NOW, groq: fakeAI({ intention: "prochain", ligne: "362", arret: "Aussonne – Grésille" }) });
+    expect(r.answer).toMatchObject({ kind: "departures", stopName: "Aussonne – Grésille" });
+  });
 });
+

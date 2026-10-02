@@ -15,6 +15,10 @@ const stops = [
   ["TLS_ARE", "Toulouse – Arènes", 43.5933, 1.4183],
   ["SEI_VIL", "Seilh – Village", 43.6939, 1.3553],
   ["TLS_BOR", "Toulouse – Borderouge", 43.6407, 1.4527],
+  // Ligne 345, sans arrêt commun avec la 362 : hors démo, sert à tester « arrêt connu mais non desservi ».
+  ["TLS_SCY", "Toulouse – St Cyprien République", 43.5986, 1.4321],
+  ["TLS_PDO", "Toulouse – Patte d'Oie", 43.5958, 1.4157],
+  ["TOU_GAR", "Tournefeuille – Gare", 43.5852, 1.3443],
 ];
 
 // [stop_id, minutes depuis le départ (hors pointe)]
@@ -22,6 +26,7 @@ const L362_ALLER = [["MERV_MAI", 0], ["AUS_MAI", 9], ["AUS_GRE", 12], ["COR_CEN"
 const L362_RETOUR = [["TLS_ARE", 0], ["BLA_ODY", 16], ["COR_CEN", 25], ["AUS_GRE", 32], ["AUS_MAI", 35], ["MERV_MAI", 44]];
 const L330_ALLER = [["AUS_MAI", 0], ["SEI_VIL", 8], ["TLS_BOR", 30]];
 const L330_RETOUR = [["TLS_BOR", 0], ["SEI_VIL", 22], ["AUS_MAI", 30]];
+const L345_ALLER = [["TLS_SCY", 0], ["TLS_PDO", 6], ["TOU_GAR", 22]];
 
 const hm = (s) => s.split(" ").map((t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; });
 const range = (from, to, step) => { const r = []; for (let t = from; t <= to; t += step) r.push(t); return r; };
@@ -36,6 +41,7 @@ const timetable = [
   ["362", 1, "Merville", L362_RETOUR, "DIM", hm("10:15 13:15 16:15 19:15")],
   ["330", 0, "Toulouse – Borderouge", L330_ALLER, "SEM", range(hm("6:50")[0], hm("19:50")[0], 60)],
   ["330", 1, "Aussonne", L330_RETOUR, "SEM", range(hm("7:30")[0], hm("20:30")[0], 60)],
+  ["345", 0, "Tournefeuille – Gare", L345_ALLER, "SEM", range(hm("7:00")[0], hm("19:00")[0], 120)],
 ];
 
 const peak = (t) => (t >= 420 && t < 540) || (t >= 1020 && t < 1140); // 7h-9h, 17h-19h
@@ -66,6 +72,7 @@ const files = {
   "routes.txt": csv(["route_id", "agency_id", "route_short_name", "route_long_name", "route_type", "route_color", "route_text_color"], [
     ["L362", "DEMO", "362", "Merville – Aussonne – Toulouse Arènes", 3, "C8102E", "FFFFFF"],
     ["L330", "DEMO", "330", "Aussonne – Seilh – Toulouse Borderouge", 3, "0B6FB8", "FFFFFF"],
+    ["L345", "DEMO", "345", "Toulouse St Cyprien – Tournefeuille", 3, "2E7D32", "FFFFFF"],
   ]),
   "trips.txt": csv(["route_id", "service_id", "trip_id", "trip_headsign", "direction_id"], trips),
   "stop_times.txt": csv(["trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"], stopTimes),

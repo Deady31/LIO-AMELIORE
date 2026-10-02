@@ -4,7 +4,9 @@ Web-app mobile-first (Next.js App Router + Tailwind) : un assistant IA d'horaire
 
 - **Prochains passages** : « prochain 362 à Grésille » → « Prochain 362 vers Toulouse – Arènes : 17h49 (dans 14 min) ».
 - **Trajet direct** : « comment aller de Aussonne à Arènes ? » → départ, arrivée, durée. Sans correspondance : « Pas de trajet direct sur les lignes de la démo ».
-- Boutons de choix si l'arrêt ou le sens est ambigu, tolérance aux fautes (« grezille », « Arènnes »), mention « Horaires théoriques » partout.
+- Boutons de choix si l'arrêt ou le sens est ambigu, mention « Horaires théoriques » partout.
+- **Recherche d'arrêt tolérante** : abréviations (« Saint » = « St », « Avenue » = « Av. »…), accents, tirets, mots collés (« stcyprien »), ordre des mots, fautes et phonétique (« ciprien », « grezille »), début de mot (« cypr »), surnoms (`data/aliases.json`). Si rien n'est sûr : « Vouliez-vous dire… ? » avec les arrêts les plus proches.
+- **Arrêts hors démo** : tous les arrêts du réseau sont reconnus. Un arrêt desservi par d'autres lignes reçoit une réponse claire (« Saint-Cyprien n'est pas desservi par les lignes de la démo, mais par la ligne… »).
 
 ## ⚠️ Données : jeu factice actuellement
 
@@ -13,6 +15,7 @@ Le script `scripts/build-gtfs.mjs` cherche le GTFS liO sur transport.data.gouv.f
 
 - lignes **362** (Merville – Aussonne – Grésille – Cornebarrieu – Blagnac Odyssud – Toulouse Arènes) et **330** (Aussonne – Seilh – Toulouse Borderouge) ;
 - 8 arrêts, service semaine / samedi / dimanche, jours fériés ;
+- une ligne 345 (St Cyprien République – Tournefeuille) non retenue, pour tester les arrêts hors démo ;
 - horaires inventés mais réalistes (pointes renforcées, une course après minuit).
 
 L'interface affiche « Données factices » tant que ce jeu est utilisé. Au build (`npm run build`, donc aussi sur Vercel), le script retente le vrai GTFS et se rabat sur la démo en cas d'échec. Vérifiez le log `[gtfs]` du build. Les exemples cliquables s'adaptent aux données chargées.
@@ -25,7 +28,9 @@ Options : `LIO_GTFS_URL=…zip`, `LIO_GTFS_FILE=chemin.zip`, `LIO_LINES=362,330`
 | --- | --- |
 | `scripts/build-gtfs.mjs` | GTFS (zip ou dossier, lu en flux) → `data/network.json` |
 | `lib/schedule.ts` | Calendriers, prochains passages, trajets directs (arrêt de départ avant l'arrêt d'arrivée sur la même course, courses après minuit) |
-| `lib/resolve.ts` | Arrêts, lignes et sens avec fuse.js |
+| `lib/text.ts` | Normalisation : abréviations, phonétique, distance d'édition |
+| `lib/resolve.ts` | Arrêts (mot à mot, alias, arrêts hors démo, fuse.js en dernier recours), lignes et sens |
+| `data/aliases.json` | Surnoms d'arrêts, à compléter librement |
 | `lib/groq.ts` | Extraction d'intention par Groq (`llama-3.3-70b-versatile`, `json_object`, température 0, délai max 4 s) |
 | `lib/intent.ts` | Validation de la sortie du LLM + analyse de repli sans IA |
 | `lib/answer.ts` | Orchestration et textes de réponse en français |

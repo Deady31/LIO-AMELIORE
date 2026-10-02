@@ -20,6 +20,8 @@ export interface StructuredRequest extends Partial<Intent> {
   departIds?: string[];
   arriveeIds?: string[];
   directionKey?: string;
+  /** noms d'arrêts extraits du texte brut, essayés si ceux de l'IA ne correspondent à rien */
+  alt?: { arret?: string | null; depart?: string | null; arrivee?: string | null };
 }
 
 export const EMPTY_INTENT: Intent = { intention: null, ligne: null, arret: null, depart: null, arrivee: null, sens: null, heure: null };
