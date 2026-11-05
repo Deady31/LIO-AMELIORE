@@ -1,12 +1,21 @@
 "use client";
 
-import type { Answer, AskResponse } from "@/lib/answer-types";
+import type { Answer, AskResponse, FollowUp } from "@/lib/answer-types";
 import type { StructuredRequest } from "@/lib/intent";
 import LineBadge from "./LineBadge";
 import { DemoTag, TheoreticalTag } from "./Tags";
-import { IconAlert, IconChevron, IconInfo, IconPin, IconRoute } from "./icons";
+import { IconAlert, IconChevron, IconInfo, IconPin, IconRoute, IconSpeaker } from "./icons";
+import { canSpeak, speak } from "./speak";
+import { spokenAnswer } from "@/lib/speech";
 
-type Actions = { onRequest: (r: StructuredRequest, label: string) => void; onQuestion: (q: string) => void };
+type Actions = {
+  onRequest: (r: StructuredRequest, label: string) => void;
+  onQuestion: (q: string) => void;
+  /** « Utiliser ma position » pour une question en attente */
+  onNear?: (f: FollowUp) => void;
+  /** seule la dernière réponse attend une réponse de l'utilisateur */
+  active?: boolean;
+};
 
 export default function AnswerCard({ res, ...actions }: { res: AskResponse } & Actions) {
   return (
@@ -15,13 +24,23 @@ export default function AnswerCard({ res, ...actions }: { res: AskResponse } & A
       <footer className="flex flex-wrap items-center gap-1.5 border-t border-line px-4 py-2.5">
         <TheoreticalTag theoretical={res.theoretical} />
         <DemoTag source={res.dataSource} />
+        {canSpeak() && (
+          <button
+            type="button"
+            onClick={() => speak(spokenAnswer(res.answer))}
+            className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 text-[11px] font-medium text-ink"
+            aria-label="Écouter la réponse"
+          >
+            <IconSpeaker className="h-3.5 w-3.5" /> Écouter
+          </button>
+        )}
         <span className="ml-auto text-[11px] text-muted">calculé à {res.now}</span>
       </footer>
     </article>
   );
 }
 
-function Body({ answer, onRequest, onQuestion }: { answer: Answer } & Actions) {
+function Body({ answer, onRequest, onQuestion, onNear, active }: { answer: Answer } & Actions) {
   switch (answer.kind) {
     case "departures":
       return (
@@ -135,28 +154,49 @@ function Body({ answer, onRequest, onQuestion }: { answer: Answer } & Actions) {
       );
 
     case "choice":
+    case "question": {
+      const followUp = answer.followUp;
+      const choices = answer.choices ?? [];
       return (
         <div className="p-4">
           <h2 className="font-semibold leading-snug">{answer.headline}</h2>
-          <div className="mt-3 flex flex-col gap-2">
-            {answer.choices.map((c, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => onRequest(c.request, c.line ? `${c.line.id} ${c.label}` : c.label)}
-                className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand-soft active:scale-[.99]"
-              >
-                {c.line ? <LineBadge line={c.line} size="sm" /> : <IconPin className="h-4 w-4 shrink-0 text-brand" />}
-                <span className="flex-1">
-                  <span className="block text-sm font-medium">{c.label}</span>
-                  {c.sub && <span className="block text-xs text-muted">{c.sub}</span>}
-                </span>
-                <IconChevron className="h-4 w-4 text-muted" />
-              </button>
-            ))}
-          </div>
+          {answer.kind === "question" && answer.detail && <p className="mt-1 text-sm text-muted">{answer.detail}</p>}
+          {choices.length > 0 && (
+            <div className="mt-3 flex max-h-80 flex-col gap-2 overflow-y-auto">
+              {choices.map((c, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => onRequest(c.request, c.line ? `${c.line.id} ${c.label}` : c.label)}
+                  className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand-soft active:scale-[.99]"
+                >
+                  {c.line ? <LineBadge line={c.line} size="sm" /> : <IconPin className="h-4 w-4 shrink-0 text-brand" />}
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium">{c.label}</span>
+                    {c.sub && <span className="block text-xs text-muted">{c.sub}</span>}
+                  </span>
+                  <IconChevron className="h-4 w-4 text-muted" />
+                </button>
+              ))}
+            </div>
+          )}
+          {followUp && active && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {followUp.geo && onNear && (
+                <button
+                  type="button"
+                  onClick={() => onNear(followUp)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-sm font-semibold text-white active:scale-[.99]"
+                >
+                  <IconPin className="h-4 w-4" /> Utiliser ma position
+                </button>
+              )}
+              <span className="text-xs text-muted">ou répondez dans la barre ci-dessus</span>
+            </div>
+          )}
         </div>
       );
+    }
 
     case "error":
       return (

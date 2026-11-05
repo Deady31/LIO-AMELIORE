@@ -44,13 +44,25 @@ export interface Choice {
   request: StructuredRequest;
 }
 
+/** Question posée par l'assistant : la réponse suivante (tapée, cliquée ou position) complète la demande. */
+export interface FollowUp {
+  slot: "arret" | "depart" | "arrivee";
+  /** demande en cours, gardée en mémoire */
+  pending: StructuredRequest;
+  /** texte vague d'origine (« mairie »), combiné à la réponse (« Merville » → « Merville mairie ») */
+  original?: string;
+  /** proposer « Utiliser ma position » */
+  geo?: boolean;
+}
+
 export type Answer =
   | { kind: "departures"; headline: string; stopName: string; fromTime?: string; directions: DirectionView[] }
   | { kind: "trips"; headline: string; from: string; to: string; fromTime?: string; trips: TripView[] }
   | { kind: "no-direct"; headline: string; detail: string }
   /** information neutre (ex. arrêt hors des lignes de la démo) */
   | { kind: "notice"; headline: string; detail: string }
-  | { kind: "choice"; headline: string; choices: Choice[] }
+  | { kind: "choice"; headline: string; choices: Choice[]; followUp?: FollowUp }
+  | { kind: "question"; headline: string; detail?: string; choices?: Choice[]; followUp: FollowUp }
   | { kind: "error"; headline: string; detail?: string; examples?: string[] };
 
 export interface AskResponse {

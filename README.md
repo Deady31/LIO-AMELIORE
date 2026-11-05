@@ -6,6 +6,8 @@ Web-app mobile-first (Next.js App Router + Tailwind) : un assistant intelligent 
 - **Trajet direct** : « comment aller de Aussonne à Arènes ? » → départ, arrivée, durée. Sans correspondance : « Pas de trajet direct sur les lignes de la démo ».
 - Boutons de choix si l'arrêt ou le sens est ambigu, mention « Horaires théoriques » partout.
 - **Recherche d'arrêt tolérante** : abréviations (« Saint » = « St », « Avenue » = « Av. »…), accents, tirets, mots collés (« stcyprien »), ordre des mots, fautes et phonétique (« ciprien », « grezille »), début de mot (« cypr »), surnoms (`data/aliases.json`). Si rien n'est sûr : « Vouliez-vous dire… ? » avec les arrêts les plus proches.
+- **Questions de précision** : s'il manque un arrêt ou qu'un nom est vague, l'assistant pose la question et garde la demande en mémoire ; la réponse tapée la complète (« je veux aller aux Arènes » → « D'où partez-vous ? » → « Aussonne »). Liste longue : choix de la commune d'abord. Trajet : seuls les arrêts avec une liaison directe sont proposés. Bouton « Utiliser ma position » (arrêts à moins de 3 km).
+- **Voix** : bouton micro (dictée du navigateur, absente sur Firefox), « J'ai compris : … » avant d'envoyer, réponse lue à voix haute, bouton « Écouter ». La transcription est faite par le téléphone (Google ou Apple), pas par l'application.
 - **Arrêts hors démo** : tous les arrêts du réseau sont reconnus. Un arrêt desservi par d'autres lignes reçoit une réponse claire (« Saint-Cyprien n'est pas desservi par les lignes de la démo, mais par la ligne… »).
 
 ## ⚠️ Données : jeu factice actuellement

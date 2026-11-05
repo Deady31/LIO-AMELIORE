@@ -14,6 +14,7 @@ export default function Infos() {
     ["Lignes", network.lines.map((l) => l.shortName).join(", ")],
     ["Arrêts", String(network.stops.length)],
     ["Compréhension", "Analyse par règles et recherche tolérante, sans modèle de langage"],
+    ["Voix", "Dictée et lecture par le navigateur du téléphone (reconnaissance vocale de Google ou Apple selon l'appareil)"],
     ["Données générées le", new Date(meta.generatedAt).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })],
   ];
   return (

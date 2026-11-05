@@ -2,10 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AskResponse } from "@/lib/answer-types";
+import type { AskResponse, FollowUp } from "@/lib/answer-types";
 import type { StructuredRequest } from "@/lib/intent";
 import AnswerCard from "./AnswerCard";
-import { IconPin, IconSend, IconSpark } from "./icons";
+import { IconMic, IconPin, IconSend, IconSpark } from "./icons";
+import { createRecognition, dictationError, speak, type Recognition } from "./speak";
+import { spokenAnswer } from "@/lib/speech";
 
 type Entry = { id: number; label: string; state: "loading" } | { id: number; label: string; state: "done"; res: AskResponse } | { id: number; label: string; state: "failed"; message: string };
 
@@ -18,7 +20,12 @@ interface Suggestion {
   demo: boolean;
 }
 
-async function callApi(body: { question: string } | { request: StructuredRequest }): Promise<AskResponse> {
+type AskPayload =
+  | { question: string; followUp?: FollowUp }
+  | { request: StructuredRequest }
+  | { followUp: FollowUp; near: { lat: number; lon: number } };
+
+async function callApi(body: AskPayload): Promise<AskResponse> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), CLIENT_TIMEOUT_MS);
   try {
@@ -44,24 +51,97 @@ export default function Assistant({ examples }: { examples: string[] }) {
   const started = useRef(false);
   const [suggest, setSuggest] = useState<{ fragment: string; items: Suggestion[] }>({ fragment: "", items: [] });
 
-  const run = useCallback(async (label: string, body: { question: string } | { request: StructuredRequest }) => {
+  const run = useCallback(async (label: string, body: AskPayload, voice = false) => {
     const id = nextId.current++;
     setEntries((list) => [{ id, label, state: "loading" }, ...list]);
     let done: Entry;
     try {
       done = { id, label, state: "done", res: await callApi(body) };
+      // Question dictée : la réponse est aussi lue à voix haute.
+      if (voice) speak(spokenAnswer(done.res.answer));
     } catch (e) {
       done = { id, label, state: "failed", message: (e as Error).message };
     }
     setEntries((list) => list.map((x) => (x.id === id ? done : x)));
   }, []);
 
-  const askQuestion = useCallback((q: string) => {
+  // Question en attente : la dernière réponse de l'assistant demande une précision.
+  const latest = entries[0];
+  const pending: FollowUp | null =
+    latest?.state === "done" && (latest.res.answer.kind === "question" || latest.res.answer.kind === "choice")
+      ? (latest.res.answer.followUp ?? null)
+      : null;
+
+  /** fresh = nouvelle demande (exemple cliqué, lien) : ignore la question en attente. */
+  const askQuestion = useCallback((q: string, fresh = false, voice = false) => {
     const question = q.trim();
     if (!question) return;
     setInput("");
-    run(question, { question });
-  }, [run]);
+    setHeard(null);
+    run(question, pending && !fresh ? { question, followUp: pending } : { question }, voice);
+  }, [run, pending]);
+
+  // Dictée : le texte reconnu s'affiche dans la barre, puis « J'ai compris : … » avant d'envoyer.
+  const [canDictate, setCanDictate] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState<string | null>(null);
+  const [voiceError, setVoiceError] = useState("");
+  const recognition = useRef<Recognition | null>(null);
+  useEffect(() => setCanDictate(createRecognition() !== null), []);
+
+  const toggleDictation = () => {
+    if (listening) {
+      recognition.current?.stop();
+      return;
+    }
+    const rec = createRecognition();
+    if (!rec) return;
+    recognition.current = rec;
+    rec.lang = "fr-FR";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    let finalText = "";
+    rec.onresult = (e) => {
+      const text = Array.from(e.results).map((r) => r[0].transcript).join(" ").trim();
+      setInput(text);
+      if (Array.from(e.results).every((r) => r.isFinal)) finalText = text;
+    };
+    rec.onerror = (e) => {
+      if (e.error !== "aborted") setVoiceError(dictationError(e.error));
+    };
+    rec.onend = () => {
+      setListening(false);
+      if (finalText) setHeard(finalText);
+    };
+    setVoiceError("");
+    setHeard(null);
+    setListening(true);
+    rec.start();
+  };
+
+  const addFailed = useCallback((label: string, message: string) => {
+    const id = nextId.current++;
+    setEntries((list) => [{ id, label, state: "failed", message }, ...list]);
+  }, []);
+
+  const askNear = useCallback((followUp: FollowUp) => {
+    if (!("geolocation" in navigator)) {
+      addFailed("Ma position", "Ce navigateur ne donne pas la position. Tapez le nom de l'arrêt.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => run("Ma position", { followUp, near: { lat: p.coords.latitude, lon: p.coords.longitude } }),
+      (err) =>
+        addFailed(
+          "Ma position",
+          err.code === err.PERMISSION_DENIED
+            ? "Localisation refusée. Autorisez-la dans les réglages du navigateur, ou tapez le nom de l'arrêt."
+            : "Position indisponible pour le moment. Tapez le nom de l'arrêt.",
+        ),
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 },
+    );
+  }, [run, addFailed]);
 
   const askRequest = useCallback((request: StructuredRequest, label: string) => run(label, { request }), [run]);
 
@@ -99,7 +179,7 @@ export default function Assistant({ examples }: { examples: string[] }) {
     const q = params.get("q");
     if (q && !started.current) {
       started.current = true;
-      askQuestion(q);
+      askQuestion(q, true);
       router.replace("/", { scroll: false });
     }
   }, [params, askQuestion, router]);
@@ -125,12 +205,23 @@ export default function Assistant({ examples }: { examples: string[] }) {
           onKeyDown={(e) => e.key === "Escape" && setSuggest({ fragment: "", items: [] })}
           aria-controls="suggestions"
           aria-expanded={suggest.items.length > 0}
-          placeholder="Demande-moi un horaire ou un trajet"
+          placeholder={pending ? "Répondez ici, ex. : Aussonne" : "Demande-moi un horaire ou un trajet"}
           maxLength={300}
           autoComplete="off"
           enterKeyHint="send"
           className="min-w-0 flex-1 bg-transparent py-2.5 text-base outline-none placeholder:text-[14px] placeholder:text-muted"
         />
+        {canDictate && (
+          <button
+            type="button"
+            onClick={toggleDictation}
+            aria-label={listening ? "Arrêter la dictée" : "Dicter ma question"}
+            aria-pressed={listening}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${listening ? "animate-pulse bg-brand text-white" : "bg-brand-soft text-brand"}`}
+          >
+            <IconMic className="h-5 w-5" />
+          </button>
+        )}
         <button
           type="submit"
           disabled={!input.trim()}
@@ -141,7 +232,41 @@ export default function Assistant({ examples }: { examples: string[] }) {
         </button>
       </form>
 
-      {suggest.items.length > 0 && (
+      {(listening || heard || voiceError) && (
+        <div className="mx-4 mt-2 rounded-2xl bg-white p-3 text-sm shadow-sm ring-1 ring-line" aria-live="polite">
+          {listening && <p className="text-muted">J&apos;écoute… parlez maintenant.</p>}
+          {!listening && voiceError && <p className="text-brand-dark">{voiceError}</p>}
+          {!listening && heard && (
+            <>
+              <p>
+                J&apos;ai compris : <span className="font-semibold">« {heard} »</span>
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => askQuestion(input || heard, false, true)}
+                  aria-label="Envoyer la question dictée"
+                  className="rounded-full bg-brand px-3.5 py-1.5 font-semibold text-white"
+                >
+                  Envoyer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHeard(null);
+                    document.getElementById("ask")?.focus();
+                  }}
+                  className="rounded-full bg-surface px-3.5 py-1.5 font-medium"
+                >
+                  Corriger
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {suggest.items.length > 0 && !listening && !heard && (
         <ul id="suggestions" aria-label="Arrêts suggérés" className="relative z-10 mx-4 mt-2 overflow-hidden rounded-2xl bg-white shadow-[0_6px_20px_rgba(16,24,40,.12)] ring-1 ring-line">
           {suggest.items.map((it) => (
             <li key={it.name} className="border-b border-line last:border-b-0">
@@ -167,7 +292,7 @@ export default function Assistant({ examples }: { examples: string[] }) {
             <button
               key={q}
               type="button"
-              onClick={() => askQuestion(q)}
+              onClick={() => askQuestion(q, true)}
               className="shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-medium shadow-sm ring-1 ring-line transition-colors hover:bg-brand-soft hover:ring-brand/30"
             >
               {q}
@@ -185,7 +310,7 @@ export default function Assistant({ examples }: { examples: string[] }) {
             </p>
           </div>
         )}
-        {entries.map((e) => (
+        {entries.map((e, index) => (
           <div key={e.id} className="space-y-2">
             <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-ink px-3.5 py-2 text-sm text-white">{e.label}</p>
             {e.state === "loading" && (
@@ -196,7 +321,7 @@ export default function Assistant({ examples }: { examples: string[] }) {
               </div>
             )}
             {e.state === "failed" && <div className="rounded-2xl bg-white p-4 text-sm ring-1 ring-amber-200">{e.message}</div>}
-            {e.state === "done" && <AnswerCard res={e.res} onRequest={askRequest} onQuestion={askQuestion} />}
+            {e.state === "done" && <AnswerCard res={e.res} onRequest={askRequest} onQuestion={(q) => askQuestion(q, true)} onNear={askNear} active={index === 0} />}
           </div>
         ))}
       </section>

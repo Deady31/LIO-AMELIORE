@@ -154,7 +154,7 @@ function strictMatch(index: PlaceIndex, q: string): Match {
     const ranked = rank(index, qt, 0.7);
     if (ranked.length) {
       const top = ranked[0].total;
-      const close = ranked.filter((r) => top - r.total < 0.06).slice(0, 5);
+      const close = ranked.filter((r) => top - r.total < 0.06).slice(0, 30);
       return { cands: close.map((r) => r.idx), group: false, score: top };
     }
   }
@@ -187,8 +187,10 @@ function fuzzyMatch(index: PlaceIndex, q: string): Match {
   if (!hits.length) return null;
   const best = hits[0].score ?? 1;
   const second = hits[1]?.score;
-  if (hits.length === 1 || (best <= 0.25 && (second === undefined || second - best >= 0.1))) return { cands: [hits[0].item.idx], group: false, score: 0 };
-  return { cands: hits.slice(0, 4).map((h) => h.item.idx), group: false, score: 0 };
+  // Correspondance quasi certaine seulement ; sinon on ne choisit pas à la place de l'utilisateur :
+  // « la plage » ressemble à « Seilh – Village » (score 0,32), et « Vouliez-vous dire… ? » le laissera trancher.
+  if (best <= 0.25 && (second === undefined || second - best >= 0.1)) return { cands: [hits[0].item.idx], group: false, score: 0 };
+  return null;
 }
 
 /** Arrêts les plus proches, pour « Vouliez-vous dire… ? ». */

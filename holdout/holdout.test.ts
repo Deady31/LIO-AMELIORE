@@ -9,6 +9,11 @@
 //   (le mot « va » était pris pour un mot de trajet).
 // - Correctif général ensuite (« va » retiré des mots de trajet) : ce jeu n'est plus vierge.
 //   Pour un nouveau score honnête, écrire un nouveau jeu de contrôle.
+// - Étape 4 (questions de précision) : « aller aux arènes » attend désormais la question
+//   « D'où partez-vous ? » au lieu d'une erreur (changement de comportement voulu, pas un réglage).
+// - « comment aller à la plage » passait jusque-là POUR UNE MAUVAISE RAISON : la recherche floue
+//   avait choisi « Seilh – Village » en silence (score 0,32), puis l'appli demandait le départ.
+//   Corrigé : au-delà d'une correspondance quasi certaine, l'appli propose « Vouliez-vous dire… ? ».
 import { describe, expect, it } from "vitest";
 import { ask } from "../lib/answer";
 import type { Answer } from "../lib/answer-types";
@@ -31,14 +36,14 @@ const CASES: [string, Expect][] = [
   ["horaire du bus Odyssud direction Arènes", { d: ODY, dir: "Toulouse" }],
   ["je veux rejoindre Merville, je suis à Cornebarrieu", { from: COR, to: MER }],
   ["quand part le prochain bus de Merville pour Toulouse", { d: MER, dir: "Toulouse" }],
-  ["aller aux arènes", { kind: "error" }],
+  ["aller aux arènes", { kind: "question" }],
   ["de grésil à odisud", { from: GRE, to: ODY }],
   ["le prochain trois cent trente à Seilh", { d: SEI }],
   ["prochain bus Borderouge", { d: BOR }],
   ["trajet seilh arènes", { kind: "no-direct" }],
   ["salut ça va", { kind: "offtopic" }],
   ["tu peux m'aider ?", { kind: "offtopic" }],
-  ["comment aller à la plage", { kind: "error" }],
+  ["comment aller à la plage", { kind: "choice" }],
 ];
 
 function check(a: Answer, e: Expect) {

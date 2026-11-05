@@ -192,3 +192,28 @@ export function understand(question: string, net: Network): Intent {
   intent.arrivee = to.text;
   return intent;
 }
+
+// --------------------------------------------------------------- réponse à une question de l'assistant
+
+function replyTokens(text: string): string[] {
+  return wordsToNumbers(normalize(text.toLowerCase().replace(/[’']/g, " ")).split(" ").filter(Boolean));
+}
+
+/**
+ * Après une question de l'assistant (« D'où partez-vous ? »), la phrase suivante est-elle
+ * une réponse (« Aussonne ») ou une nouvelle demande (« prochain 330 à Seilh ») ?
+ */
+export function looksLikeNewQuestion(text: string, net: Network): boolean {
+  const tokens = replyTokens(text);
+  const knownLines = net.lines.map((l) => l.id);
+  if (tokens.some((t) => TRAJET_KW.has(t) || PROCHAIN_KW.has(t) || knownLines.includes(t))) return true;
+  return findMentions(net, tokens).length >= 2;
+}
+
+/** Nom d'arrêt contenu dans une réponse courte (« euh à Aussonne » → « aussonne »), sinon le texte nettoyé. */
+export function placeInReply(text: string, net: Network): string {
+  const tokens = replyTokens(text);
+  const m = findMentions(net, tokens)[0];
+  if (m) return m.text;
+  return tokens.filter((t) => !EDGE.has(t)).join(" ") || text.trim();
+}

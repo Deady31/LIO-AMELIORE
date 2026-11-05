@@ -1,11 +1,11 @@
 // Transforme une intention en réponse affichable. Tous les horaires sont calculés ici.
-import type { Answer, AskResponse, Choice, DirectionView, LineBadge, TripView } from "./answer-types";
+import type { Answer, AskResponse, Choice, DirectionView, FollowUp, LineBadge, TripView } from "./answer-types";
 import type { StructuredRequest } from "./intent";
-import { understand } from "./understand";
+import { looksLikeNewQuestion, placeInReply, understand } from "./understand";
 import { REALTIME_ENABLED } from "./config";
 import type { Network } from "./network";
 import { normalize, resolveDirection, resolveLine, resolvePlace, type PlaceResolution } from "./resolve";
-import { directionsAtStop, directTrips, nextDepartures } from "./schedule";
+import { directionsAtStop, directTrips, matchOnTrip, nextDepartures } from "./schedule";
 import { dayLabel, formatClock, formatDuration, formatWait, parisMoment, parseClock, shiftDate } from "./time";
 import type { LocalMoment } from "./types";
 
@@ -67,13 +67,64 @@ function elsewhereAnswer(net: Network, r: Extract<PlaceResolution, { status: "el
 
 const linesSub = (net: Network, i: number) => `Ligne${net.stops[i].lines.length > 1 ? "s" : ""} ${net.stops[i].lines.join(", ")}`;
 
+type Slot = FollowUp["slot"];
+const SLOT_IDS = { arret: "arretIds", depart: "departIds", arrivee: "arriveeIds" } as const;
+
+/** Demande complétée par un arrêt précis (les autres champs sont gardés). */
+const withStop = (req: StructuredRequest, slot: Slot, id: string): StructuredRequest => ({ ...req, [slot]: null, [SLOT_IDS[slot]]: [id] });
+
+/** Commune d'un nom d'arrêt « Commune – Arrêt » (vide si absente). */
+const communeOf = (name: string) => {
+  const parts = name.split(/\s+[–—-]\s+/);
+  return parts.length > 1 ? parts[0].trim() : "";
+};
+
+/**
+ * Plusieurs arrêts possibles : boutons par arrêt, ou d'abord par commune quand la liste est longue
+ * (« Mairie » dans dix communes). La demande reste en mémoire : une réponse tapée la complète.
+ */
+function stopChoices(net: Network, cands: number[], req: StructuredRequest, slot: Slot, original: string, headline: string): Answer {
+  const followUp: FollowUp = { slot, pending: { ...req, [slot]: null, [SLOT_IDS[slot]]: undefined }, original, geo: slot !== "arrivee" };
+  const byCommune = new Map<string, number[]>();
+  for (const i of cands) {
+    const c = communeOf(net.stops[i].name);
+    byCommune.set(c, [...(byCommune.get(c) ?? []), i]);
+  }
+  if (cands.length > 5 && byCommune.size > 1) {
+    return {
+      kind: "choice",
+      headline: `« ${original} » existe dans plusieurs communes. Laquelle ?`,
+      choices: [...byCommune.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], "fr"))
+        .map(([c, list]) => ({
+          label: c || "Autre",
+          sub: `${list.length} arrêt${list.length > 1 ? "s" : ""}`,
+          request: list.length === 1 ? withStop(req, slot, net.stops[list[0]].id) : { ...req, [slot]: `${c} ${original}`, [SLOT_IDS[slot]]: undefined },
+        })),
+      followUp,
+    };
+  }
+  return {
+    kind: "choice",
+    headline,
+    choices: cands.map((i) => ({ label: net.stops[i].name, sub: linesSub(net, i), request: withStop(req, slot, net.stops[i].id) })),
+    followUp,
+  };
+}
+
+/** L'assistant pose une question et garde la demande en mémoire. */
+function question(headline: string, detail: string, req: StructuredRequest, slot: Slot, choices?: Choice[]): Answer {
+  return { kind: "question", headline, detail, choices, followUp: { slot, pending: req, geo: slot !== "arrivee" } };
+}
+
 /** Arrêt introuvable : propose les plus proches plutôt qu'une erreur sèche. */
-function notFoundAnswer(net: Network, r: Extract<PlaceResolution, { status: "notfound" }>, role: string, toRequest: (stopId: string) => StructuredRequest): Answer {
+function notFoundAnswer(net: Network, r: Extract<PlaceResolution, { status: "notfound" }>, role: string, req: StructuredRequest, slot: Slot): Answer {
   if (r.suggestions.length) {
     return {
       kind: "choice",
       headline: `Je ne trouve pas exactement l'arrêt${role} « ${r.query} ». Vouliez-vous dire :`,
-      choices: r.suggestions.map((i) => ({ label: net.stops[i].name, sub: linesSub(net, i), request: toRequest(net.stops[i].id) })),
+      choices: r.suggestions.map((i) => ({ label: net.stops[i].name, sub: linesSub(net, i), request: withStop(req, slot, net.stops[i].id) })),
+      followUp: { slot, pending: { ...req, [slot]: null }, geo: slot !== "arrivee" },
     };
   }
   return {
@@ -120,34 +171,28 @@ function answerProchain(net: Network, req: StructuredRequest, now: LocalMoment):
   // Arrêt
   let stopIdxs: number[] = (req.arretIds ?? []).map((id) => net.stopIndex.get(id)).filter((i): i is number => i !== undefined);
   let stopLabel = stopIdxs.length === 1 ? net.stops[stopIdxs[0]].name : "";
-  const lineStopsChoices = (headline: string): Answer => ({
-    kind: "choice",
-    headline,
-    choices: net.stops
-      .filter((s) => s.lines.includes(lineId!))
-      .map((s) => ({ label: s.name, request: { ...req, intention: "prochain", arret: null, arretIds: [s.id] } })),
-  });
+  const pendingProchain: StructuredRequest = { ...req, intention: "prochain", arret: null, arretIds: undefined };
+  const lineStopsChoices = (headline: string): Answer =>
+    question(
+      headline,
+      "Touchez un arrêt, tapez son nom ou utilisez votre position.",
+      pendingProchain,
+      "arret",
+      net.stops.filter((s) => s.lines.includes(lineId!)).map((s) => ({ label: s.name, request: withStop(pendingProchain, "arret", s.id) })),
+    );
   if (!stopIdxs.length) {
     if (!req.arret) {
       if (lineId) return lineStopsChoices(`À quel arrêt de la ${lineId} ?`);
-      return { kind: "error", headline: "Précisez un arrêt.", detail: "Par exemple : « prochain 362 à Grésille ».", examples: examplesFor(net).slice(0, 2) };
+      return question("À quel arrêt ?", "Tapez le nom de l'arrêt (par exemple « Grésille ») ou utilisez votre position.", pendingProchain, "arret");
     }
     const r = resolveWithAlt(net, req.arret, req.alt?.arret, { lineId });
     if (r.status === "elsewhere") return elsewhereAnswer(net, r);
     if (r.status === "notfound") {
       if (lineId && !r.suggestions.length) return lineStopsChoices(`Je ne trouve pas l'arrêt « ${r.query} ». Arrêts de la ${lineId} :`);
-      return notFoundAnswer(net, r, "", (id) => ({ ...req, intention: "prochain", arret: null, arretIds: [id] }));
+      return notFoundAnswer(net, r, "", pendingProchain, "arret");
     }
     if (r.status === "ambiguous") {
-      return {
-        kind: "choice",
-        headline: `Plusieurs arrêts correspondent à « ${r.label} » :`,
-        choices: r.candidates.map((i) => ({
-          label: net.stops[i].name,
-          sub: linesSub(net, i),
-          request: { ...req, intention: "prochain", arret: null, arretIds: [net.stops[i].id] },
-        })),
-      };
+      return stopChoices(net, r.candidates, pendingProchain, "arret", r.label, `Plusieurs arrêts correspondent à « ${r.label} » :`);
     }
     stopIdxs = r.stopIdxs;
     stopLabel = r.label;
@@ -216,37 +261,60 @@ function answerProchain(net: Network, req: StructuredRequest, now: LocalMoment):
 
 type Side = { idxs: number[]; label: string };
 
-function resolveSide(net: Network, req: StructuredRequest, role: "depart" | "arrivee"): Side | Answer {
+/** Résolution silencieuse d'un côté du trajet (sans poser de question), pour filtrer l'autre côté. */
+function quietSide(net: Network, req: StructuredRequest, role: "depart" | "arrivee"): number[] | undefined {
+  const ids = role === "depart" ? req.departIds : req.arriveeIds;
+  const fromIds = ids?.map((id) => net.stopIndex.get(id)).filter((i): i is number => i !== undefined);
+  if (fromIds?.length) return fromIds;
+  const text = req[role];
+  if (!text) return undefined;
+  const r = resolveWithAlt(net, text, req.alt?.[role]);
+  if (r.status === "ok") return r.stopIdxs;
+  if (r.status === "ambiguous" && r.group) return r.candidates;
+  return undefined;
+}
+
+/** Garde les arrêts qui ont une liaison directe avec l'autre côté (s'il est connu). */
+function usefulStops(net: Network, cands: number[], role: "depart" | "arrivee", other?: number[]): number[] {
+  if (!other?.length) return cands;
+  return cands.filter((c) => net.trips.some((t) => (role === "depart" ? matchOnTrip(t, [c], other) : matchOnTrip(t, other, [c]))));
+}
+
+function resolveSide(net: Network, req: StructuredRequest, role: "depart" | "arrivee", other?: number[]): Side | Answer {
   const ids = role === "depart" ? req.departIds : req.arriveeIds;
   if (ids?.length) {
     const idxs = ids.map((id) => net.stopIndex.get(id)).filter((i): i is number => i !== undefined);
     if (idxs.length) return { idxs, label: idxs.length === 1 ? net.stops[idxs[0]].name : (req[role] ?? net.stops[idxs[0]].name) };
   }
   const text = req[role];
+  const pending: StructuredRequest = { ...req, intention: "trajet" };
   if (!text) {
     return role === "depart"
-      ? { kind: "error", headline: "D'où partez-vous ?", detail: "Précisez le départ et l'arrivée, par exemple « de Aussonne à Arènes ».", examples: examplesFor(net).slice(1, 2) }
-      : { kind: "error", headline: "Où voulez-vous aller ?", detail: "Précisez l'arrivée, par exemple « de Aussonne à Arènes ».", examples: examplesFor(net).slice(1, 2) };
+      ? question("D'où partez-vous ?", "Tapez l'arrêt de départ (par exemple « Aussonne ») ou utilisez votre position.", pending, "depart")
+      : question("Où voulez-vous aller ?", "Tapez l'arrêt d'arrivée, par exemple « Arènes ».", pending, "arrivee");
   }
   const r = resolveWithAlt(net, text, req.alt?.[role]);
-  const roleLabel = role === "depart" ? "départ" : "arrivée";
-  const key = role === "depart" ? "departIds" : "arriveeIds";
   if (r.status === "ok") return { idxs: r.stopIdxs, label: r.label };
   if (r.status === "elsewhere") return elsewhereAnswer(net, r);
-  if (r.status === "notfound") return notFoundAnswer(net, r, ` de ${roleLabel}`, (id) => ({ ...req, intention: "trajet", [key]: [id] }));
+  if (r.status === "notfound") return notFoundAnswer(net, r, role === "depart" ? " de départ" : " d'arrivée", pending, role);
   // Commune entière (ex. « Aussonne ») : on cherche depuis tous ses arrêts.
   if (r.group) return { idxs: r.candidates, label: `${r.label.charAt(0).toUpperCase()}${r.label.slice(1)} (tous arrêts)` };
-  return {
-    kind: "choice",
-    headline: `Plusieurs arrêts de ${roleLabel} correspondent à « ${r.label} » :`,
-    choices: r.candidates.map((i) => ({ label: net.stops[i].name, sub: linesSub(net, i), request: { ...req, intention: "trajet", [key]: [net.stops[i].id] } })),
-  };
+  // Ne proposer que les arrêts utiles : ceux qui ont une liaison directe avec l'autre côté.
+  const useful = usefulStops(net, r.candidates, role, other);
+  if (useful.length === 1) return { idxs: useful, label: net.stops[useful[0]].name };
+  const cands = useful.length ? useful : r.candidates;
+  return stopChoices(net, cands, pending, role, r.label, `Plusieurs arrêts ${role === "depart" ? "de départ" : "d'arrivée"} correspondent à « ${r.label} » :`);
 }
 
 function answerTrajet(net: Network, req: StructuredRequest, now: LocalMoment): Answer {
-  const from = resolveSide(net, req, "depart");
+  // Arrivée donnée mais introuvable : le dire tout de suite, plutôt que demander le départ pour rien.
+  if (!req.depart && !req.departIds?.length && req.arrivee) {
+    const to = resolveSide(net, req, "arrivee");
+    if ("kind" in to && to.kind !== "question") return to;
+  }
+  const from = resolveSide(net, req, "depart", quietSide(net, req, "arrivee"));
   if ("kind" in from) return from;
-  const to = resolveSide(net, req, "arrivee");
+  const to = resolveSide(net, req, "arrivee", from.idxs);
   if ("kind" in to) return to;
   if (from.idxs.every((i) => to.idxs.includes(i)) || to.idxs.every((i) => from.idxs.includes(i))) {
     return { kind: "error", headline: "Le départ et l'arrivée désignent le même arrêt.", detail: `${from.label} → ${to.label}` };
@@ -307,6 +375,78 @@ export function answerRequest(net: Network, req: StructuredRequest, now: LocalMo
 export interface AskBody {
   question?: unknown;
   request?: unknown;
+  /** question en attente posée par l'assistant (la phrase tapée la complète) */
+  followUp?: unknown;
+  /** position de l'utilisateur, pour proposer les arrêts les plus proches */
+  near?: unknown;
+}
+
+const SLOTS = new Set(["arret", "depart", "arrivee"]);
+
+function readFollowUp(v: unknown): FollowUp | null {
+  if (!v || typeof v !== "object") return null;
+  const f = v as FollowUp;
+  if (!SLOTS.has(f.slot) || !f.pending || typeof f.pending !== "object") return null;
+  return f;
+}
+
+function readNear(v: unknown): { lat: number; lon: number } | null {
+  if (!v || typeof v !== "object") return null;
+  const { lat, lon } = v as { lat: unknown; lon: unknown };
+  if (typeof lat !== "number" || typeof lon !== "number" || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat, lon };
+}
+
+/** La réponse tapée complète la demande en attente. */
+export function fillFollowUp(net: Network, f: FollowUp, reply: string): StructuredRequest {
+  const place = placeInReply(reply, net);
+  let text = place;
+  // « mairie » + « Merville » → « Merville mairie », si cela désigne bien un seul arrêt.
+  if (f.original) {
+    const combined = `${place} ${f.original}`;
+    const r = resolvePlace(net, combined);
+    if (r.status === "ok" || (r.status === "ambiguous" && r.group)) text = combined;
+  }
+  return { ...f.pending, [f.slot]: text, [SLOT_IDS[f.slot]]: undefined };
+}
+
+const MAX_NEAR_M = 3000;
+
+function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const r = Math.PI / 180;
+  const x = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lon - a.lon) * r) / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.sqrt(x));
+}
+
+/** Arrêts de la démo les plus proches de l'utilisateur, utiles pour la demande en cours. */
+export function answerNear(net: Network, f: FollowUp, pos: { lat: number; lon: number }): Answer {
+  let cands = net.stops.map((s, i) => ({ i, d: distanceM(pos, s) })).filter((c) => c.d <= MAX_NEAR_M);
+  if (f.slot !== "arret") {
+    const role = f.slot;
+    const other = quietSide(net, f.pending, role === "depart" ? "arrivee" : "depart");
+    const useful = new Set(usefulStops(net, cands.map((c) => c.i), role, other));
+    if (useful.size) cands = cands.filter((c) => useful.has(c.i));
+  }
+  cands.sort((a, b) => a.d - b.d);
+  if (!cands.length) {
+    return {
+      kind: "error",
+      headline: "Aucun arrêt de la démo à moins de 3 km de votre position.",
+      detail: "Tapez plutôt le nom de l'arrêt.",
+    };
+  }
+  const fmt = (d: number) => (d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1).replace(".", ",")} km`);
+  return {
+    kind: "choice",
+    headline: "Arrêts les plus proches de vous :",
+    choices: cands.slice(0, 3).map((c) => ({
+      label: net.stops[c.i].name,
+      sub: `à ${fmt(c.d)} · ${linesSub(net, c.i)}`,
+      request: withStop(f.pending, f.slot, net.stops[c.i].id),
+    })),
+    followUp: { ...f, geo: false },
+  };
 }
 
 export async function ask(
@@ -317,6 +457,11 @@ export async function ask(
   const now = opts.now ?? parisMoment();
   const base = { theoretical: !REALTIME_ENABLED, dataSource: net.meta.source, now: formatClock(now.minutes) };
 
+  const followUp = readFollowUp(body.followUp);
+  const near = readNear(body.near);
+  if (followUp && near) {
+    return { ...base, mode: "bouton", answer: answerNear(net, followUp, near) };
+  }
   if (body.request && typeof body.request === "object") {
     return { ...base, mode: "bouton", answer: answerRequest(net, body.request as StructuredRequest, now) };
   }
@@ -328,6 +473,11 @@ export async function ask(
     return { ...base, mode: "regles", answer: { kind: "error", headline: "Question trop longue (300 caractères maximum)." } };
   }
 
+  // Réponse à une question de l'assistant : elle complète la demande en mémoire.
+  if (followUp && !looksLikeNewQuestion(question, net)) {
+    const req = fillFollowUp(net, followUp, question);
+    return { ...base, mode: "regles", answer: answerRequest(net, req, now) };
+  }
   // Analyse sans modèle de langage : arrêts repérés dans la phrase, rôle donné par les mots voisins.
   const intent = understand(question, net);
   return { ...base, mode: "regles", intent, answer: answerRequest(net, intent, now) };

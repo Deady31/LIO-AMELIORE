@@ -54,3 +54,15 @@ export const IconAlert = ({ className }: P) => (
     <path d="M12 10v4.5M12 17h.01" />
   </svg>
 );
+export const IconMic = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" className={className} {...base}>
+    <rect x="9" y="3.5" width="6" height="11" rx="3" />
+    <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5" />
+  </svg>
+);
+export const IconSpeaker = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" className={className} {...base}>
+    <path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" />
+    <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10" />
+  </svg>
+);
