@@ -275,3 +275,22 @@ export function spotPlace(net: Network, span: string): number {
   const m = strictMatch(served, q) ?? (net.otherStops?.length ? strictMatch(other, q) : null);
   return m ? m.score : 0;
 }
+
+export interface PlaceSuggestion {
+  name: string;
+  lines: string[];
+  /** true = desservi par une ligne de la démo (horaires disponibles) */
+  demo: boolean;
+}
+
+/** Arrêts qui ressemblent le plus à un fragment de texte, pour les suggestions pendant la frappe. */
+export function suggestPlaces(net: Network, raw: string, limit = 5): PlaceSuggestion[] {
+  const qt = queryTokens(cleanQuery(raw));
+  if (!qt.length) return [];
+  const { served, other } = indexes(net);
+  const all = [
+    ...rank(served, qt, 0.7).map((r) => ({ name: net.stops[r.idx].name, lines: net.stops[r.idx].lines, demo: true, score: r.total + 0.05 })),
+    ...(net.otherStops?.length ? rank(other, qt, 0.7).map((r) => ({ name: net.otherStops![r.idx].name, lines: net.otherStops![r.idx].lines, demo: false, score: r.total })) : []),
+  ];
+  return all.sort((a, b) => b.score - a.score).slice(0, limit).map(({ score: _s, ...s }) => s);
+}

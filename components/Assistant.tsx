@@ -5,11 +5,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AskResponse } from "@/lib/answer-types";
 import type { StructuredRequest } from "@/lib/intent";
 import AnswerCard from "./AnswerCard";
-import { IconSend, IconSpark } from "./icons";
+import { IconPin, IconSend, IconSpark } from "./icons";
 
 type Entry = { id: number; label: string; state: "loading" } | { id: number; label: string; state: "done"; res: AskResponse } | { id: number; label: string; state: "failed"; message: string };
 
 const CLIENT_TIMEOUT_MS = 12_000;
+const SUGGEST_DELAY_MS = 180;
+
+interface Suggestion {
+  name: string;
+  lines: string[];
+  demo: boolean;
+}
 
 async function callApi(body: { question: string } | { request: StructuredRequest }): Promise<AskResponse> {
   const ctrl = new AbortController();
@@ -35,6 +42,7 @@ export default function Assistant({ examples }: { examples: string[] }) {
   const params = useSearchParams();
   const router = useRouter();
   const started = useRef(false);
+  const [suggest, setSuggest] = useState<{ fragment: string; items: Suggestion[] }>({ fragment: "", items: [] });
 
   const run = useCallback(async (label: string, body: { question: string } | { request: StructuredRequest }) => {
     const id = nextId.current++;
@@ -56,6 +64,35 @@ export default function Assistant({ examples }: { examples: string[] }) {
   }, [run]);
 
   const askRequest = useCallback((request: StructuredRequest, label: string) => run(label, { request }), [run]);
+
+  // Suggestions d'arrêts pendant la frappe (légère attente pour ne pas interroger à chaque lettre).
+  useEffect(() => {
+    if (input.trim().length < 3 || input.endsWith(" ")) {
+      setSuggest({ fragment: "", items: [] });
+      return;
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(input)}`, { signal: ctrl.signal });
+        if (res.ok) setSuggest(await res.json());
+      } catch {
+        // Suggestions facultatives : en cas d'échec, on n'affiche rien.
+      }
+    }, SUGGEST_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [input]);
+
+  const pickSuggestion = (name: string) => {
+    const { fragment } = suggest;
+    const base = fragment && input.endsWith(fragment) ? input.slice(0, input.length - fragment.length) : `${input} `;
+    setInput(`${base}${name} `);
+    setSuggest({ fragment: "", items: [] });
+    document.getElementById("ask")?.focus();
+  };
 
   // Question transmise par un autre écran : /?q=…
   useEffect(() => {
@@ -85,6 +122,9 @@ export default function Assistant({ examples }: { examples: string[] }) {
           id="ask"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && setSuggest({ fragment: "", items: [] })}
+          aria-controls="suggestions"
+          aria-expanded={suggest.items.length > 0}
           placeholder="Demande-moi un horaire ou un trajet"
           maxLength={300}
           autoComplete="off"
@@ -100,6 +140,25 @@ export default function Assistant({ examples }: { examples: string[] }) {
           <IconSend className="h-5 w-5" />
         </button>
       </form>
+
+      {suggest.items.length > 0 && (
+        <ul id="suggestions" aria-label="Arrêts suggérés" className="relative z-10 mx-4 mt-2 overflow-hidden rounded-2xl bg-white shadow-[0_6px_20px_rgba(16,24,40,.12)] ring-1 ring-line">
+          {suggest.items.map((it) => (
+            <li key={it.name} className="border-b border-line last:border-b-0">
+              <button type="button" onClick={() => pickSuggestion(it.name)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-brand-soft active:bg-brand-soft">
+                <IconPin className="h-4 w-4 shrink-0 text-brand" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{it.name}</span>
+                  <span className="block truncate text-xs text-muted">
+                    {it.lines.length ? `Ligne${it.lines.length > 1 ? "s" : ""} ${it.lines.slice(0, 6).join(", ")}` : ""}
+                    {it.demo ? "" : " · hors démo"}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <section className="px-4 pt-4" aria-label="Exemples">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Essayez</h2>

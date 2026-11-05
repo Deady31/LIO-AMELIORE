@@ -31,6 +31,7 @@ Options : `LIO_GTFS_URL=…zip`, `LIO_GTFS_FILE=chemin.zip`, `LIO_LINES=362,330`
 | `lib/text.ts` | Normalisation : abréviations, phonétique, distance d'édition |
 | `lib/resolve.ts` | Arrêts (mot à mot, alias, arrêts hors démo, fuse.js en dernier recours), lignes et sens |
 | `data/aliases.json` | Surnoms d'arrêts, à compléter librement |
+| `lib/suggest.ts`, `app/api/suggest/route.ts` | Suggestions d'arrêts pendant la frappe (même moteur de recherche que les réponses, y compris les arrêts hors démo) |
 | `lib/understand.ts` | Compréhension de la phrase : repère les arrêts cités, puis leur rôle (départ, arrivée, sens) d'après les mots voisins |
 | `lib/intent.ts` | Ancienne analyse par tournures fixes, utilisée en secours quand aucun arrêt n'est repéré |
 | `lib/answer.ts` | Orchestration et textes de réponse en français |
