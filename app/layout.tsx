@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Assistant horaires – concept",
-  description: "Concept d'assistant IA d'horaires et d'itinéraires pour un réseau de cars régional (non officiel).",
+  description: "Concept d'assistant intelligent d'horaires et d'itinéraires pour un réseau de cars régional (non officiel).",
 };
 
 export const viewport: Viewport = {

@@ -122,7 +122,7 @@ export default function Assistant({ examples }: { examples: string[] }) {
           <div className="rounded-2xl border border-dashed border-line bg-white/60 p-4 text-sm text-muted">
             <p className="font-medium text-ink">Comment ça marche ?</p>
             <p className="mt-1">
-              Posez votre question en langage courant : l&apos;IA comprend la demande, puis les horaires sont calculés à partir des fiches horaires du réseau.
+              Posez votre question en langage courant. L&apos;assistant reconnaît l&apos;arrêt et la ligne, puis calcule les horaires à partir des fiches horaires du réseau.
             </p>
           </div>
         )}

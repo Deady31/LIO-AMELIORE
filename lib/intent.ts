@@ -1,4 +1,4 @@
-// Intention extraite d'une question (par le LLM ou par le repli sans IA).
+// Intention extraite d'une question, par règles (sans modèle de langage).
 import { normalize } from "./resolve";
 
 export type Intention = "prochain" | "trajet";
@@ -54,7 +54,7 @@ export function sanitizeIntent(raw: unknown): Intent {
   };
 }
 
-// ------------------------------------------------------------ repli sans IA
+// ------------------------------------------------------------ analyse par règles
 
 const TRAJET_WORDS = /\b(aller|trajet|itineraire|rejoindre|comment|me rendre|se rendre)\b/;
 const PROCHAIN_WORDS = /\b(prochain|prochains|prochaine|passage|passages|horaire|horaires|quand|depart|departs|passe)\b/;

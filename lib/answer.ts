@@ -1,6 +1,5 @@
 // Transforme une intention en réponse affichable. Tous les horaires sont calculés ici.
 import type { Answer, AskResponse, Choice, DirectionView, LineBadge, TripView } from "./answer-types";
-import { GroqError, parseWithGroq } from "./groq";
 import { parseFallback, type Intent, type StructuredRequest } from "./intent";
 import { REALTIME_ENABLED } from "./config";
 import type { Network } from "./network";
@@ -312,7 +311,7 @@ export interface AskBody {
 export async function ask(
   net: Network,
   body: AskBody,
-  opts: { now?: LocalMoment; groq?: (q: string, net: Network) => Promise<Intent> } = {},
+  opts: { now?: LocalMoment } = {},
 ): Promise<AskResponse> {
   const now = opts.now ?? parisMoment();
   const base = { theoretical: !REALTIME_ENABLED, dataSource: net.meta.source, now: formatClock(now.minutes) };
@@ -322,24 +321,13 @@ export async function ask(
   }
   const question = typeof body.question === "string" ? body.question.trim() : "";
   if (!question) {
-    return { ...base, mode: "repli", answer: { kind: "error", headline: "Posez une question d'horaire ou de trajet.", examples: examplesFor(net) } };
+    return { ...base, mode: "regles", answer: { kind: "error", headline: "Posez une question d'horaire ou de trajet.", examples: examplesFor(net) } };
   }
   if (question.length > 300) {
-    return { ...base, mode: "repli", answer: { kind: "error", headline: "Question trop longue (300 caractères maximum)." } };
+    return { ...base, mode: "regles", answer: { kind: "error", headline: "Question trop longue (300 caractères maximum)." } };
   }
 
-  let intent: Intent;
-  let mode: AskResponse["mode"] = "ia";
-  let modeReason: string | undefined;
-  const ruleIntent = parseFallback(question, net.lines.map((l) => l.id));
-  try {
-    intent = await (opts.groq ?? parseWithGroq)(question, net);
-  } catch (e) {
-    intent = ruleIntent;
-    mode = "repli";
-    modeReason = e instanceof GroqError ? e.reason : "IA indisponible";
-  }
-  // Si le nom d'arrêt proposé par l'IA ne correspond à rien, on réessaiera avec le texte de l'utilisateur.
-  const alt = mode === "ia" ? { arret: ruleIntent.arret, depart: ruleIntent.depart, arrivee: ruleIntent.arrivee } : undefined;
-  return { ...base, mode, modeReason, intent, answer: answerRequest(net, { ...intent, alt }, now) };
+  // Analyse par règles, sans modèle de langage : la phrase est découpée puis les arrêts sont retrouvés par le code.
+  const intent = parseFallback(question, net.lines.map((l) => l.id));
+  return { ...base, mode: "regles", intent, answer: answerRequest(net, intent, now) };
 }

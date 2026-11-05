@@ -69,7 +69,7 @@ describe("lignes et sens", () => {
   });
 });
 
-describe("analyse sans IA", () => {
+describe("analyse par règles", () => {
   const lines = ["362", "330"];
   it.each([
     ["prochain 362 à Grésille", { intention: "prochain", ligne: "362", arret: "gresille" }],

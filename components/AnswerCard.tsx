@@ -15,12 +15,6 @@ export default function AnswerCard({ res, ...actions }: { res: AskResponse } & A
       <footer className="flex flex-wrap items-center gap-1.5 border-t border-line px-4 py-2.5">
         <TheoreticalTag theoretical={res.theoretical} />
         <DemoTag source={res.dataSource} />
-        {res.mode === "ia" && <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand-dark">Compris par l&apos;IA</span>}
-        {res.mode === "repli" && (
-          <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-medium text-muted" title={res.modeReason}>
-            Mode sans IA{res.modeReason ? ` · ${res.modeReason}` : ""}
-          </span>
-        )}
         <span className="ml-auto text-[11px] text-muted">calculé à {res.now}</span>
       </footer>
     </article>

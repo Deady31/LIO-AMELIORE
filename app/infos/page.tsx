@@ -8,18 +8,17 @@ const fmt = (d: string) => (d ? `${d.slice(6, 8)}/${d.slice(4, 6)}/${d.slice(0, 
 
 export default function Infos() {
   const { meta } = network;
-  const ai = Boolean(process.env.GROQ_API_KEY);
   const rows = [
     ["Source", meta.source === "demo" ? "Jeu de données factice (GTFS du réseau introuvable au build)" : meta.feedName],
     ["Validité", `${fmt(meta.validFrom)} → ${fmt(meta.validTo)}`],
     ["Lignes", network.lines.map((l) => l.shortName).join(", ")],
     ["Arrêts", String(network.stops.length)],
-    ["Compréhension", ai ? "IA (Groq) avec repli automatique sans IA" : "Mode sans IA (clé GROQ_API_KEY absente)"],
+    ["Compréhension", "Analyse par règles et recherche tolérante, sans modèle de langage"],
     ["Données générées le", new Date(meta.generatedAt).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })],
   ];
   return (
     <main>
-      <Header title="À propos du concept" subtitle="Assistant IA d'horaires intégré à une appli de transport." />
+      <Header title="À propos du concept" subtitle="Assistant intelligent d'horaires intégré à une appli de transport." />
       <div className="space-y-4 p-4">
         <section className="rounded-2xl bg-white p-4 text-sm leading-relaxed shadow-[0_1px_3px_rgba(16,24,40,.08)] ring-1 ring-line">
           <h2 className="mb-2 font-semibold">Concept non officiel</h2>
@@ -28,8 +27,7 @@ export default function Infos() {
             n&apos;est ni produite ni validée par l&apos;exploitant.
           </p>
           <p className="mt-2 text-muted">
-            L&apos;IA sert uniquement à comprendre la question. Tous les horaires sont calculés par l&apos;application à partir des fiches horaires (GTFS) : l&apos;IA ne
-            fournit jamais d&apos;heure.
+            Les horaires sont calculés par l&apos;application à partir des fiches horaires (GTFS). Aucun modèle de langage n&apos;intervient dans la réponse.
           </p>
         </section>
         <section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_3px_rgba(16,24,40,.08)] ring-1 ring-line">

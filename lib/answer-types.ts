@@ -55,9 +55,8 @@ export type Answer =
 
 export interface AskResponse {
   answer: Answer;
-  /** ia = Groq ; repli = analyse sans IA ; bouton = choix structuré */
-  mode: "ia" | "repli" | "bouton";
-  modeReason?: string;
+  /** regles = analyse de la phrase par règles ; bouton = choix structuré */
+  mode: "regles" | "bouton";
   /** horaires théoriques (pas de temps réel branché) */
   theoretical: boolean;
   dataSource: "gtfs" | "demo";
