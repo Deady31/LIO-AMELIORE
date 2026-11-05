@@ -31,7 +31,8 @@ Options : `LIO_GTFS_URL=…zip`, `LIO_GTFS_FILE=chemin.zip`, `LIO_LINES=362,330`
 | `lib/text.ts` | Normalisation : abréviations, phonétique, distance d'édition |
 | `lib/resolve.ts` | Arrêts (mot à mot, alias, arrêts hors démo, fuse.js en dernier recours), lignes et sens |
 | `data/aliases.json` | Surnoms d'arrêts, à compléter librement |
-| `lib/intent.ts` | Analyse de la phrase par règles (intention, ligne, arrêt, sens, heure) |
+| `lib/understand.ts` | Compréhension de la phrase : repère les arrêts cités, puis leur rôle (départ, arrivée, sens) d'après les mots voisins |
+| `lib/intent.ts` | Ancienne analyse par tournures fixes, utilisée en secours quand aucun arrêt n'est repéré |
 | `lib/answer.ts` | Orchestration et textes de réponse en français |
 | `app/api/ask/route.ts` | `POST {question}` ou `{request}` (bouton de choix) |
 
@@ -56,3 +57,16 @@ Test rapide de l'API : `http://localhost:3000/api/ask?q=prochain 362 à Grésill
 2. Déployer. `npm run build` lance d'abord `prebuild`, qui tente le GTFS réel puis se rabat sur la démo.
 
 Ou en ligne de commande : `npx vercel` puis `npx vercel --prod`.
+
+## Mesure de la compréhension (sans modèle de langage)
+
+Phrases écrites par l'équipe, sur le jeu de démo. **Ce ne sont pas des phrases de vrais utilisateurs.**
+
+| Jeu | Rôle | Résultat |
+| --- | --- | --- |
+| `tests/benchmark.test.ts` (42 phrases : tapées, parlées, fautes, hors sujet) | Réglage du code | 27/42 avant, 42/42 après (jeu utilisé pour régler : score optimiste) |
+| `holdout/holdout.test.ts` (18 phrases écrites après le code) | Contrôle | 16/18 au premier passage ; 17/18 après un correctif général (jeu plus vierge) |
+
+Commandes : `npm run bench` et `npm run bench:holdout`.
+Temps de compréhension mesuré en local : 38 à 96 ms par phrase avec 4 800 arrêts synthétiques.
+

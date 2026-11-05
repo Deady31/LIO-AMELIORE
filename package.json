@@ -12,7 +12,9 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bench": "vitest run tests/benchmark.test.ts",
+    "bench:holdout": "vitest run --config vitest.holdout.config.ts"
   },
   "engines": {
     "node": ">=20"

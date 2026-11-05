@@ -263,3 +263,15 @@ export function resolveDirection<T extends { key: string; matchTerms: string[] }
   const bestScore = hits[0].score ?? 0;
   return pick(dirs.filter((d) => hits.some((h) => h.item.key === d.key && (h.score ?? 0) <= bestScore + 0.05)));
 }
+
+/**
+ * Repérage strict d'un nom d'arrêt dans un morceau de phrase (sans recherche floue),
+ * pour retrouver les arrêts cités dans une phrase libre. 0 = pas un arrêt connu.
+ */
+export function spotPlace(net: Network, span: string): number {
+  const q = cleanQuery(span);
+  if (!q) return 0;
+  const { served, other } = indexes(net);
+  const m = strictMatch(served, q) ?? (net.otherStops?.length ? strictMatch(other, q) : null);
+  return m ? m.score : 0;
+}

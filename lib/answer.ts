@@ -1,6 +1,7 @@
 // Transforme une intention en réponse affichable. Tous les horaires sont calculés ici.
 import type { Answer, AskResponse, Choice, DirectionView, LineBadge, TripView } from "./answer-types";
-import { parseFallback, type Intent, type StructuredRequest } from "./intent";
+import type { StructuredRequest } from "./intent";
+import { understand } from "./understand";
 import { REALTIME_ENABLED } from "./config";
 import type { Network } from "./network";
 import { normalize, resolveDirection, resolveLine, resolvePlace, type PlaceResolution } from "./resolve";
@@ -327,7 +328,7 @@ export async function ask(
     return { ...base, mode: "regles", answer: { kind: "error", headline: "Question trop longue (300 caractères maximum)." } };
   }
 
-  // Analyse par règles, sans modèle de langage : la phrase est découpée puis les arrêts sont retrouvés par le code.
-  const intent = parseFallback(question, net.lines.map((l) => l.id));
+  // Analyse sans modèle de langage : arrêts repérés dans la phrase, rôle donné par les mots voisins.
+  const intent = understand(question, net);
   return { ...base, mode: "regles", intent, answer: answerRequest(net, intent, now) };
 }
